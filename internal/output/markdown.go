@@ -32,7 +32,7 @@ func (d *MarkdownDriver) Item(title string, data map[string]any) error {
 	// Render description if present (nested under fields)
 	if fields, ok := data["fields"].(map[string]any); ok {
 		if desc := fields["description"]; desc != nil {
-			fmt.Fprintf(d.w, "\n### Description\n\n%v\n", desc)
+			fmt.Fprintf(d.w, "\n### Description\n\n%s\n", ADFToMarkdown(desc))
 		}
 
 		// Render comments if present
@@ -129,7 +129,7 @@ func (d *MarkdownDriver) renderComments(fields map[string]any) {
 		if c, ok := cm["created"].(string); ok {
 			created = fmt.Sprintf(" (%s)", c)
 		}
-		fmt.Fprintf(d.w, "\n**%s**%s:\n%v\n", author, created, cm["body"])
+		fmt.Fprintf(d.w, "\n**%s**%s:\n%s\n", author, created, ADFToMarkdown(cm["body"]))
 	}
 }
 
