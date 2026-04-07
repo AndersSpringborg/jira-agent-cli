@@ -75,15 +75,14 @@ func TestTransition(t *testing.T) {
 	var unexpectedStatusCode bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/issue/TEST/transitions", r.URL.Path)
+		assert.Equal(t, "/rest/api/3/issue/TEST/transitions", r.URL.Path)
 		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		actualBody := new(strings.Builder)
 		_, _ = io.Copy(actualBody, r.Body)
 
-		expectedBody := `{"transition":{"id":"31","name":"Done"}}`
+		expectedBody := `{"transition":{"id":"31"}}`
 		assert.Equal(t, expectedBody, actualBody.String())
 
 		if unexpectedStatusCode {

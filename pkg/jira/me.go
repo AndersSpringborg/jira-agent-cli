@@ -2,7 +2,7 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -16,20 +16,41 @@ type Me struct {
 
 // Me fetches response from /myself endpoint.
 func (c *Client) Me() (*Me, error) {
-	res, err := c.GetV2(context.Background(), "/myself", nil)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	resp, err := c.cloud.GetCurrentUserWithResponse(context.Background(), nil)
 	if err != nil {
 		return nil, err
 	}
-	if res != nil {
-		defer func() { _ = res.Body.Close() }()
+	if resp.HTTPResponse == nil {
+		return nil, ErrEmptyResponse
 	}
-	if res.StatusCode != http.StatusOK {
-		return nil, formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
 	}
 
-	var me Me
+	u := resp.JSON200
+	me := &Me{}
 
-	err = json.NewDecoder(res.Body).Decode(&me)
+	if u.DisplayName != nil {
+		me.Name = *u.DisplayName
+	}
+	if u.EmailAddress != nil {
+		me.Email = *u.EmailAddress
+	}
+	if u.TimeZone != nil {
+		me.Timezone = *u.TimeZone
+	}
+	// Cloud API doesn't return "name" for cloud users (it's accountId-based).
+	// Use the accountId as login since that's the unique identifier.
+	if u.AccountId != nil {
+		me.Login = *u.AccountId
+	}
 
-	return &me, err
+	return me, nil
 }

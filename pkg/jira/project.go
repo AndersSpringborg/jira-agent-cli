@@ -2,8 +2,10 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"net/http"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
 const (
@@ -15,22 +17,49 @@ const (
 
 // Project fetches response from /project endpoint.
 func (c *Client) Project() ([]*Project, error) {
-	res, err := c.GetV2(context.Background(), "/project?expand=lead", nil)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	expand := "lead"
+	resp, err := c.cloud.GetAllProjectsWithResponse(
+		context.Background(),
+		&cloud.GetAllProjectsParams{
+			Expand: &expand,
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
+	if resp.HTTPResponse == nil {
 		return nil, ErrEmptyResponse
 	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
 	}
 
 	var out []*Project
+	for _, p := range *resp.JSON200 {
+		proj := &Project{}
+		if p.Key != nil {
+			proj.Key = *p.Key
+		}
+		if p.Name != nil {
+			proj.Name = *p.Name
+		}
+		if p.Lead != nil {
+			if p.Lead.DisplayName != nil {
+				proj.Lead.Name = *p.Lead.DisplayName
+			}
+		}
+		if p.Style != nil {
+			proj.Type = string(*p.Style)
+		}
+		out = append(out, proj)
+	}
 
-	err = json.NewDecoder(res.Body).Decode(&out)
-
-	return out, err
+	return out, nil
 }

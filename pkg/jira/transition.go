@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
 // TransitionRequest struct holds request data for issue transition request.
@@ -44,9 +46,28 @@ type transitionResponse struct {
 	Transitions []*Transition `json:"transitions"`
 }
 
-// Transitions fetches valid transitions for an issue using v3 version of the GET /issue/{key}/transitions endpoint.
+// Transitions fetches valid transitions for an issue using the generated cloud client
+// GET /issue/{key}/transitions endpoint.
 func (c *Client) Transitions(key string) ([]*Transition, error) {
-	return c.transitions(key, apiVersion3)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	resp, err := c.cloud.GetTransitionsWithResponse(context.Background(), key, nil)
+	if err != nil {
+		return nil, err
+	}
+	if resp.HTTPResponse == nil {
+		return nil, ErrEmptyResponse
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
+	}
+
+	return convertTransitions(resp.JSON200), nil
 }
 
 // TransitionsV2 fetches valid transitions for an issue using v2 version of the GET /issue/{key}/transitions endpoint.
@@ -88,29 +109,76 @@ func (c *Client) transitions(key, ver string) ([]*Transition, error) {
 	return out.Transitions, err
 }
 
-// Transition moves issue from one state to another using POST /issue/{key}/transitions endpoint.
+// Transition moves issue from one state to another using the generated cloud client
+// POST /issue/{key}/transitions endpoint.
 func (c *Client) Transition(key string, data *TransitionRequest) (int, error) {
-	body, err := json.Marshal(&data)
+	if c.cloud == nil {
+		return 0, fmt.Errorf("cloud client not initialized")
+	}
+
+	body := cloud.DoTransitionJSONRequestBody{
+		Transition: &cloud.IssueTransition{
+			Id: &data.Transition.ID,
+		},
+	}
+
+	// Build update map for comments if present.
+	if data.Update != nil && len(data.Update.Comment) > 0 {
+		updateMap := make(map[string][]cloud.FieldUpdateOperation)
+		var ops []cloud.FieldUpdateOperation
+		for _, c := range data.Update.Comment {
+			addMap := map[string]interface{}{"body": c.Add.Body}
+			ops = append(ops, cloud.FieldUpdateOperation{Add: &addMap})
+		}
+		updateMap["comment"] = ops
+		body.Update = &updateMap
+	}
+
+	// Build fields map for assignee/resolution if present.
+	if data.Fields != nil {
+		fieldsMap := make(map[string]interface{})
+		if data.Fields.Assignee != nil {
+			fieldsMap["assignee"] = map[string]string{"name": data.Fields.Assignee.Name}
+		}
+		if data.Fields.Resolution != nil {
+			fieldsMap["resolution"] = map[string]string{"name": data.Fields.Resolution.Name}
+		}
+		body.Fields = &fieldsMap
+	}
+
+	resp, err := c.cloud.DoTransitionWithResponse(context.Background(), key, body)
 	if err != nil {
 		return 0, err
 	}
-
-	path := fmt.Sprintf("/issue/%s/transitions", key)
-
-	res, err := c.PostV2(context.Background(), path, body, Header{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	})
-	if err != nil {
-		return 0, err
-	}
-	if res == nil {
+	if resp.HTTPResponse == nil {
 		return 0, ErrEmptyResponse
 	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusNoContent {
-		return res.StatusCode, formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusNoContent {
+		return resp.StatusCode(), parseCloudError(resp.Body, resp.HTTPResponse)
 	}
-	return res.StatusCode, nil
+	return resp.StatusCode(), nil
+}
+
+// convertTransitions maps the generated cloud Transitions type to our domain type.
+func convertTransitions(t *cloud.Transitions) []*Transition {
+	if t.Transitions == nil {
+		return nil
+	}
+
+	var out []*Transition
+	for _, tr := range *t.Transitions {
+		trans := &Transition{}
+		if tr.Id != nil {
+			trans.ID = json.Number(*tr.Id)
+		}
+		if tr.Name != nil {
+			trans.Name = *tr.Name
+		}
+		if tr.IsAvailable != nil {
+			trans.IsAvailable = *tr.IsAvailable
+		}
+		out = append(out, trans)
+	}
+
+	return out
 }

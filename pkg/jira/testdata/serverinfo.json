@@ -8,8 +8,8 @@
   ],
   "deploymentType": "Cloud",
   "buildNumber": 100204,
-  "buildDate": "2022-08-12T12:59:12.000+0200",
-  "serverTime": "2022-08-15T21:08:52.725+0200",
+  "buildDate": "2022-08-12T12:59:12.000+02:00",
+  "serverTime": "2022-08-15T21:08:52.725+02:00",
   "scmInfo": "948b370c557f4bbf768b92203f3aca5d86ee9758",
   "serverTitle": "Jira",
   "defaultLocale": {

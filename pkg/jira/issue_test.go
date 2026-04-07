@@ -355,10 +355,10 @@ func TestAssignIssue(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "PUT", r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		if apiVersion2 {
+			assert.Equal(t, "application/json", r.Header.Get("Accept"))
 			assert.Equal(t, "/rest/api/2/issue/TEST-1/assignee", r.URL.Path)
 		} else {
 			assert.Equal(t, "/rest/api/3/issue/TEST-1/assignee", r.URL.Path)
@@ -367,7 +367,6 @@ func TestAssignIssue(t *testing.T) {
 		if unexpectedStatusCode {
 			w.WriteHeader(400)
 		} else {
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(204)
 		}
 	}))
@@ -392,7 +391,7 @@ func TestGetIssueLinkTypes(t *testing.T) {
 	var unexpectedStatusCode bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/issueLinkType", r.URL.Path)
+		assert.Equal(t, "/rest/api/3/issueLinkType", r.URL.Path)
 
 		if unexpectedStatusCode {
 			w.WriteHeader(400)
@@ -442,8 +441,7 @@ func TestLinkIssue(t *testing.T) {
 	var unexpectedStatusCode bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/issueLink", r.URL.Path)
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
+		assert.Equal(t, "/rest/api/3/issueLink", r.URL.Path)
 		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		if unexpectedStatusCode {
@@ -469,10 +467,8 @@ func TestUnlinkIssue(t *testing.T) {
 	var unexpectedStatusCode bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/issueLink/123", r.URL.Path)
+		assert.Equal(t, "/rest/api/3/issueLink/123", r.URL.Path)
 		assert.Equal(t, http.MethodDelete, r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		if unexpectedStatusCode {
 			w.WriteHeader(400)
@@ -612,7 +608,7 @@ func TestGetField(t *testing.T) {
 	var unexpectedStatusCode bool
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/field", r.URL.Path)
+		assert.Equal(t, "/rest/api/3/field", r.URL.Path)
 
 		if unexpectedStatusCode {
 			w.WriteHeader(400)
@@ -716,10 +712,10 @@ func TestWatchIssue(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
-		assert.Equal(t, "application/json", r.Header.Get("Accept"))
-		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 
 		if apiVersion2 {
+			assert.Equal(t, "application/json", r.Header.Get("Accept"))
+			assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 			assert.Equal(t, "/rest/api/2/issue/TEST-1/watchers", r.URL.Path)
 		} else {
 			assert.Equal(t, "/rest/api/3/issue/TEST-1/watchers", r.URL.Path)
@@ -728,7 +724,6 @@ func TestWatchIssue(t *testing.T) {
 		if unexpectedStatusCode {
 			w.WriteHeader(400)
 		} else {
-			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(204)
 		}
 	}))

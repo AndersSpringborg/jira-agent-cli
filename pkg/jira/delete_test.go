@@ -14,10 +14,10 @@ func TestDeleteIssue(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if unexpectedStatusCode {
-			assert.Equal(t, "/rest/api/2/issue/BAD", r.URL.RequestURI())
+			assert.Equal(t, "/rest/api/3/issue/BAD", r.URL.RequestURI())
 			w.WriteHeader(400)
 		} else {
-			assert.Equal(t, "/rest/api/2/issue/TEST-1", r.URL.RequestURI())
+			assert.Equal(t, "/rest/api/3/issue/TEST-1", r.URL.RequestURI())
 			w.WriteHeader(204)
 		}
 	}))
@@ -36,7 +36,7 @@ func TestDeleteIssue(t *testing.T) {
 
 func TestDeleteIssueWithCascade(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "/rest/api/2/issue/TEST-1?deleteSubtasks=true", r.URL.RequestURI())
+		assert.Equal(t, "/rest/api/3/issue/TEST-1?deleteSubtasks=true", r.URL.RequestURI())
 		w.WriteHeader(204)
 	}))
 	defer server.Close()

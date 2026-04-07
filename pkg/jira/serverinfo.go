@@ -2,7 +2,7 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -19,20 +19,41 @@ type ServerInfo struct {
 
 // ServerInfo fetches response from /serverInfo endpoint.
 func (c *Client) ServerInfo() (*ServerInfo, error) {
-	res, err := c.GetV2(context.Background(), "/serverInfo", nil)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	resp, err := c.cloud.GetServerInfoWithResponse(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	if res != nil {
-		defer func() { _ = res.Body.Close() }()
+	if resp.HTTPResponse == nil {
+		return nil, ErrEmptyResponse
 	}
-	if res.StatusCode != http.StatusOK {
-		return nil, formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
 	}
 
-	var info ServerInfo
+	si := resp.JSON200
+	info := &ServerInfo{}
 
-	err = json.NewDecoder(res.Body).Decode(&info)
+	if si.Version != nil {
+		info.Version = *si.Version
+	}
+	if si.DeploymentType != nil {
+		info.DeploymentType = *si.DeploymentType
+	}
+	if si.BuildNumber != nil {
+		info.BuildNumber = int(*si.BuildNumber)
+	}
+	if si.VersionNumbers != nil {
+		for _, v := range *si.VersionNumbers {
+			info.VersionNumbers = append(info.VersionNumbers, int(v))
+		}
+	}
 
-	return &info, err
+	return info, nil
 }

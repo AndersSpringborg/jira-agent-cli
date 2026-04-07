@@ -5,6 +5,7 @@ import (
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
+	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -18,6 +19,7 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 		issueType string
 		status    string
 		assignee  string
+		display   string
 	)
 
 	cmd := &cobra.Command{
@@ -60,6 +62,12 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("assignee") {
 				profile.Context.Assignee = assignee
 			}
+			if cmd.Flags().Changed("display") {
+				if _, err := output.ParseFormat(display); err != nil {
+					return err
+				}
+				profile.Context.Display = display
+			}
 
 			config.UpsertProfile(cfg, profile)
 			if err := config.Save(cfg); err != nil {
@@ -78,6 +86,7 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVar(&issueType, "issue-type", "", "Issue type")
 	cmd.Flags().StringVar(&status, "status", "", "Status")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "Assignee")
+	cmd.Flags().StringVar(&display, "display", "", "Default output format: json, markdown")
 
 	return cmd
 }

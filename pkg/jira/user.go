@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
 // ErrInvalidSearchOption denotes invalid search option was given.
@@ -22,9 +24,56 @@ type UserSearchOptions struct {
 	MaxResults int
 }
 
-// UserSearch search for user details using v3 version of the GET /user/assignable/search endpoint.
+// UserSearch search for user details using the generated cloud client
+// GET /user/assignable/search endpoint.
 func (c *Client) UserSearch(opt *UserSearchOptions) ([]*User, error) {
-	return c.userSearch(opt, apiVersion3)
+	if opt == nil {
+		return nil, ErrInvalidSearchOption
+	}
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	params := &cloud.FindAssignableUsersParams{}
+
+	if opt.Project != "" {
+		params.Project = &opt.Project
+	}
+	if opt.Query != "" {
+		params.Query = &opt.Query
+	}
+	if opt.AccountID != "" {
+		params.AccountId = &opt.AccountID
+	}
+	if opt.StartAt != 0 {
+		startAt := int32(opt.StartAt)
+		params.StartAt = &startAt
+	}
+	if opt.MaxResults != 0 {
+		maxResults := int32(opt.MaxResults)
+		params.MaxResults = &maxResults
+	}
+
+	// Validate that at least one search option is set.
+	if opt.Project == "" && opt.Query == "" && opt.AccountID == "" {
+		return nil, ErrInvalidSearchOption
+	}
+
+	resp, err := c.cloud.FindAssignableUsersWithResponse(context.Background(), params)
+	if err != nil {
+		return nil, err
+	}
+	if resp.HTTPResponse == nil {
+		return nil, ErrEmptyResponse
+	}
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
+	}
+
+	return convertUsers(*resp.JSON200), nil
 }
 
 // UserSearchV2 search for user details using v2 version of the GET /user/assignable/search endpoint.
@@ -102,4 +151,26 @@ func (c *Client) userSearch(opt *UserSearchOptions, ver string) ([]*User, error)
 		return nil, err
 	}
 	return out, nil
+}
+
+// convertUsers maps a slice of generated cloud User types to our domain User type.
+func convertUsers(users []cloud.User) []*User {
+	var out []*User
+	for _, u := range users {
+		user := &User{}
+		if u.AccountId != nil {
+			user.AccountID = *u.AccountId
+		}
+		if u.DisplayName != nil {
+			user.DisplayName = *u.DisplayName
+		}
+		if u.EmailAddress != nil {
+			user.Email = *u.EmailAddress
+		}
+		if u.Active != nil {
+			user.Active = *u.Active
+		}
+		out = append(out, user)
+	}
+	return out
 }

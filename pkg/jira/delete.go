@@ -4,26 +4,33 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
-// DeleteIssue deletes an issue using /issue/{key} endpoint.
+// DeleteIssue deletes an issue using the generated cloud client DELETE /issue/{key} endpoint.
 func (c *Client) DeleteIssue(key string, cascade bool) error {
-	path := fmt.Sprintf("/issue/%s", key)
-	if cascade {
-		path = fmt.Sprintf("%s?deleteSubtasks=true", path)
+	if c.cloud == nil {
+		return fmt.Errorf("cloud client not initialized")
 	}
 
-	res, err := c.DeleteV2(context.Background(), path, nil)
+	var params *cloud.DeleteIssueParams
+	if cascade {
+		deleteSubtasks := cloud.DeleteIssueParamsDeleteSubtasks("true")
+		params = &cloud.DeleteIssueParams{
+			DeleteSubtasks: &deleteSubtasks,
+		}
+	}
+
+	resp, err := c.cloud.DeleteIssueWithResponse(context.Background(), key, params)
 	if err != nil {
 		return err
 	}
-	if res == nil {
+	if resp.HTTPResponse == nil {
 		return ErrEmptyResponse
 	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusNoContent {
-		return formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusNoContent {
+		return parseCloudError(resp.Body, resp.HTTPResponse)
 	}
 	return nil
 }

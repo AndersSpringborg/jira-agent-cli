@@ -14,6 +14,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
 const (
@@ -124,6 +126,11 @@ type Client struct {
 	token     string
 	timeout   time.Duration
 	debug     bool
+
+	// cloud is the generated OpenAPI client for Jira Cloud REST API v3.
+	// Methods that have v3 endpoints use this; Agile and v2 endpoints
+	// continue to use the raw HTTP helpers (Get, GetV2, GetV1, etc.).
+	cloud *cloud.ClientWithResponses
 }
 
 // ClientFunc decorates option for client.
@@ -177,7 +184,44 @@ func NewClient(c Config, opts ...ClientFunc) *Client {
 
 	client.transport = transport
 
+	// Initialize the generated OpenAPI client for v3 endpoints.
+	httpClient := &http.Client{Transport: transport}
+	cloudClient, err := cloud.NewClientWithResponses(
+		client.server,
+		cloud.WithHTTPClient(httpClient),
+		cloud.WithRequestEditorFn(client.authEditor),
+	)
+	if err != nil {
+		// This should only fail on invalid server URL — fall back to nil
+		// so callers that only use v1/v2 still work.
+		cloudClient = nil
+	}
+	client.cloud = cloudClient
+
 	return &client
+}
+
+// authEditor is a RequestEditorFn that injects authentication headers
+// into requests made by the generated cloud client.
+func (c *Client) authEditor(_ context.Context, req *http.Request) error {
+	// Set default auth type to "basic".
+	if c.authType == nil {
+		basic := AuthTypeBasic
+		c.authType = &basic
+	}
+
+	switch c.authType.String() {
+	case string(AuthTypeMTLS):
+		if c.token != "" {
+			req.Header.Set("Authorization", "Bearer "+c.token)
+		}
+	case string(AuthTypeBearer):
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	case string(AuthTypeBasic):
+		req.SetBasicAuth(c.login, c.token)
+	}
+
+	return nil
 }
 
 // WithTimeout is a functional opt to attach timeout to the client.

@@ -1,8 +1,10 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,9 +68,45 @@ func (cr *CreateRequest) WithCustomFields(cf []IssueTypeField) {
 	cr.configuredCustomFields = cf
 }
 
-// Create creates an issue using v3 version of the POST /issue endpoint.
+// Create creates an issue using the generated cloud client POST /issue endpoint.
 func (c *Client) Create(req *CreateRequest) (*CreateResponse, error) {
-	return c.create(req, apiVersion3)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	data := c.getRequestData(req)
+	body, err := json.Marshal(&data)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.cloud.CreateIssueWithBodyWithResponse(
+		context.Background(),
+		nil, // no extra params
+		"application/json",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return nil, err
+	}
+	if resp.HTTPResponse == nil {
+		return nil, ErrEmptyResponse
+	}
+	if resp.StatusCode() != http.StatusCreated {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON201 == nil {
+		return nil, ErrEmptyResponse
+	}
+
+	out := &CreateResponse{}
+	if resp.JSON201.Id != nil {
+		out.ID = *resp.JSON201.Id
+	}
+	if resp.JSON201.Key != nil {
+		out.Key = *resp.JSON201.Key
+	}
+	return out, nil
 }
 
 // CreateV2 creates an issue using v2 version of the POST /issue endpoint.
@@ -84,19 +122,12 @@ func (c *Client) create(req *CreateRequest, ver string) (*CreateResponse, error)
 		return nil, err
 	}
 
-	header := Header{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	}
-
 	var res *http.Response
 
-	switch ver {
-	case apiVersion2:
-		res, err = c.PostV2(context.Background(), "/issue", body, header)
-	default:
-		res, err = c.Post(context.Background(), "/issue", body, header)
-	}
+	res, err = c.PostV2(context.Background(), "/issue", body, Header{
+		"Accept":       "application/json",
+		"Content-Type": "application/json",
+	})
 
 	if err != nil {
 		return nil, err

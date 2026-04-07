@@ -2,30 +2,57 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 )
 
 // Release fetches response from /project/{projectIdOrKey}/version endpoint.
 func (c *Client) Release(project string) ([]*ProjectVersion, error) {
-	path := fmt.Sprintf("/project/%s/versions", project)
-	res, err := c.Get(context.Background(), path, nil)
+	if c.cloud == nil {
+		return nil, fmt.Errorf("cloud client not initialized")
+	}
+
+	resp, err := c.cloud.GetProjectVersionsWithResponse(
+		context.Background(),
+		project,
+		nil, // no extra params
+	)
 	if err != nil {
 		return nil, err
 	}
-	if res == nil {
+	if resp.HTTPResponse == nil {
 		return nil, ErrEmptyResponse
 	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusOK {
-		return nil, formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusOK {
+		return nil, parseCloudError(resp.Body, resp.HTTPResponse)
+	}
+	if resp.JSON200 == nil {
+		return nil, ErrEmptyResponse
 	}
 
 	var out []*ProjectVersion
+	for _, v := range *resp.JSON200 {
+		pv := &ProjectVersion{}
+		if v.Id != nil {
+			pv.ID = *v.Id
+		}
+		if v.Name != nil {
+			pv.Name = *v.Name
+		}
+		if v.Description != nil {
+			pv.Description = *v.Description
+		}
+		if v.Archived != nil {
+			pv.Archived = *v.Archived
+		}
+		if v.Released != nil {
+			pv.Released = *v.Released
+		}
+		if v.ProjectId != nil {
+			pv.ProjectID = int(*v.ProjectId)
+		}
+		out = append(out, pv)
+	}
 
-	err = json.NewDecoder(res.Body).Decode(&out)
-
-	return out, err
+	return out, nil
 }

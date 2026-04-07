@@ -18,6 +18,7 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 		issueType bool
 		status    bool
 		assignee  bool
+		display   bool
 	)
 
 	cmd := &cobra.Command{
@@ -36,7 +37,7 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 				return nil
 			}
 
-			noSpecific := !project && !boardID && !epic && !labels && !issueType && !status && !assignee
+			noSpecific := !project && !boardID && !epic && !labels && !issueType && !status && !assignee && !display
 
 			if noSpecific {
 				profile.Context = nil
@@ -61,6 +62,9 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 				if assignee {
 					profile.Context.Assignee = ""
+				}
+				if display {
+					profile.Context.Display = ""
 				}
 				if profile.Context.IsEmpty() {
 					profile.Context = nil
@@ -88,6 +92,7 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&issueType, "issue-type", false, "Clear issue type filter")
 	cmd.Flags().BoolVar(&status, "status", false, "Clear status filter")
 	cmd.Flags().BoolVar(&assignee, "assignee", false, "Clear assignee filter")
+	cmd.Flags().BoolVar(&display, "display", false, "Clear display format")
 
 	return cmd
 }

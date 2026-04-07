@@ -51,7 +51,6 @@ func TestUserSearch(t *testing.T) {
 		{
 			AccountID:   "5fb82376aca10c006949f35b",
 			Email:       "jane@domain.tld",
-			Name:        "janedoe",
 			DisplayName: "Jane Doe",
 			Active:      true,
 		},

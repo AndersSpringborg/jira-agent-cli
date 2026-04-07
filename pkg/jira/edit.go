@@ -1,13 +1,17 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+
+	"AndersSpringborg/jira-cli/pkg/jira/cloud"
 )
 
 const separatorMinus = "-"
@@ -43,34 +47,41 @@ func (er *EditRequest) WithCustomFields(cf []IssueTypeField) {
 	er.configuredCustomFields = cf
 }
 
-// Edit updates an issue using POST /issue endpoint.
+// Edit updates an issue using the generated cloud client PUT /issue/{key} endpoint.
 func (c *Client) Edit(key string, req *EditRequest) error {
-	data := getRequestDataForEdit(req)
+	if c.cloud == nil {
+		return fmt.Errorf("cloud client not initialized")
+	}
 
+	data := getRequestDataForEdit(req)
 	body, err := json.Marshal(&data)
 	if err != nil {
 		return err
 	}
 
-	endpoint := "/issue/" + key
+	var notifyUsers *bool
 	if req.SkipNotify {
-		endpoint += "?notifyUsers=false"
+		f := false
+		notifyUsers = &f
 	}
 
-	res, err := c.PutV2(context.Background(), endpoint, body, Header{
-		"Accept":       "application/json",
-		"Content-Type": "application/json",
-	})
+	resp, err := c.cloud.EditIssueWithBodyWithResponse(
+		context.Background(),
+		key,
+		&cloud.EditIssueParams{
+			NotifyUsers: notifyUsers,
+		},
+		"application/json",
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return err
 	}
-	if res == nil {
+	if resp.HTTPResponse == nil {
 		return ErrEmptyResponse
 	}
-	defer func() { _ = res.Body.Close() }()
-
-	if res.StatusCode != http.StatusNoContent {
-		return formatUnexpectedResponse(res)
+	if resp.StatusCode() != http.StatusNoContent {
+		return parseCloudError(resp.Body, resp.HTTPResponse)
 	}
 
 	return nil
