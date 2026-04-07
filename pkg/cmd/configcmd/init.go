@@ -1,8 +1,6 @@
 package configcmd
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -25,8 +23,6 @@ func NewInitCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			_ = f
-
 			p := &config.Profile{
 				Name:           profile,
 				BaseURL:        baseURL,
@@ -37,8 +33,9 @@ func NewInitCmd(f *cmdutil.Factory) *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			fmt.Printf("Profile '%s' saved and set as default.\n", profile)
-			return nil
+
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Profile '%s' saved and set as default.", profile)
 		},
 	}
 

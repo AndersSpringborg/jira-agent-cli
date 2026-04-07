@@ -30,11 +30,11 @@ func ADFToMarkdown(v any) string {
 		if docType, ok := val["type"].(string); ok && docType == "doc" {
 			return convertADF(val)
 		}
-		// Not ADF — fall back to fmt
-		return fmt.Sprintf("%v", v)
+		// Not ADF — fall back to compact JSON
+		return marshalFallback(v)
 
 	default:
-		return fmt.Sprintf("%v", v)
+		return marshalFallback(v)
 	}
 }
 
@@ -43,14 +43,25 @@ func ADFToMarkdown(v any) string {
 func convertADF(m map[string]any) string {
 	data, err := json.Marshal(m)
 	if err != nil {
-		return fmt.Sprintf("%v", m)
+		return marshalFallback(m)
 	}
 
 	var doc adf.ADF
 	if err := json.Unmarshal(data, &doc); err != nil {
-		return fmt.Sprintf("%v", m)
+		return marshalFallback(m)
 	}
 
 	tr := adf.NewTranslator(&doc, adf.NewMarkdownTranslator())
 	return tr.Translate()
+}
+
+// marshalFallback produces compact JSON for non-string, non-ADF values.
+// This avoids Go's default fmt.Sprintf("%v") which produces unreadable
+// map[key:value] output for nested structures.
+func marshalFallback(v any) string {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return fmt.Sprintf("%v", v)
+	}
+	return string(data)
 }

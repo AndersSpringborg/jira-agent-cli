@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
-	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -57,12 +56,13 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if rawOutput {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
-			fmt.Printf("Created issue: %v\n", data["key"])
-			return nil
+			return driver.Message("Created issue: %v", data["key"])
 		},
 	}
 

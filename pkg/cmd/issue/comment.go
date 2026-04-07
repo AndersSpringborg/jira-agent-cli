@@ -39,8 +39,8 @@ func newCommentAddCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Added comment to: %s\n", issueKey)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Added comment to: %s", issueKey)
 		},
 	}
 

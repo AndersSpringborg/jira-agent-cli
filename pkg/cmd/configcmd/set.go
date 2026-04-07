@@ -1,8 +1,6 @@
 package configcmd
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -45,8 +43,8 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			fmt.Printf("Profile '%s' updated.\n", profile)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Profile '%s' updated.", profile)
 		},
 	}
 

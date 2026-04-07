@@ -52,8 +52,8 @@ func newStartCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Started sprint: %d\n", sprintID)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Started sprint: %d", sprintID)
 		},
 	}
 

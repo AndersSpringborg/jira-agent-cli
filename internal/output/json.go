@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 )
 
 // JSONDriver renders output as JSON.
@@ -31,7 +32,10 @@ func (d *JSONDriver) Message(format string, args ...any) error {
 }
 
 func (d *JSONDriver) Error(err error) error {
-	return d.encode(map[string]any{"error": err.Error()})
+	enc := json.NewEncoder(os.Stderr)
+	enc.SetIndent("", "  ")
+	enc.SetEscapeHTML(false)
+	return enc.Encode(map[string]any{"error": err.Error()})
 }
 
 func (d *JSONDriver) encode(v any) error {

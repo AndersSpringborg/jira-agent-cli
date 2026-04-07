@@ -84,11 +84,13 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 
 			nl := true
 			if attrs != nil {
-				a := attrs.(map[string]any)
-				for k := range a {
-					if k == "language" {
-						nl = false
-						break
+				a, ok := attrs.(map[string]any)
+				if ok {
+					for k := range a {
+						if k == "language" {
+							nl = false
+							break
+						}
 					}
 				}
 			}
@@ -149,7 +151,7 @@ func (tr *MarkdownTranslator) Open(n Connector, _ int) string {
 		case MarkCode:
 			tag.WriteString(" `")
 		case MarkStrike:
-			tag.WriteString(" -")
+			tag.WriteString(" ~~")
 		case MarkLink:
 			tag.WriteString(" [")
 		}
@@ -219,7 +221,7 @@ func (tr *MarkdownTranslator) Close(n Connector) string {
 		case MarkCode:
 			tag.WriteString("` ")
 		case MarkStrike:
-			tag.WriteString("- ")
+			tag.WriteString("~~ ")
 		case MarkLink:
 			tag.WriteString("]")
 		}
@@ -235,12 +237,16 @@ func (tr *MarkdownTranslator) setOpenTagAttributes(a any) string {
 		return ""
 	}
 
+	attrs, ok := a.(map[string]any)
+	if !ok {
+		return ""
+	}
+
 	var (
 		tag strings.Builder
 		nl  bool
 	)
 
-	attrs := a.(map[string]any)
 	for k, v := range attrs {
 		if tr.isValidAttr(k) {
 			switch k {
@@ -248,8 +254,10 @@ func (tr *MarkdownTranslator) setOpenTagAttributes(a any) string {
 				tag.WriteString(fmt.Sprintf("%s", v))
 				nl = true
 			case "level":
-				for range int(v.(float64)) {
-					tag.WriteString("#")
+				if fv, ok := v.(float64); ok {
+					for range int(fv) {
+						tag.WriteString("#")
+					}
 				}
 				tag.WriteString(" ")
 			case "text":
@@ -257,9 +265,9 @@ func (tr *MarkdownTranslator) setOpenTagAttributes(a any) string {
 				nl = false
 			}
 		}
-		if nl {
-			tag.WriteString("\n")
-		}
+	}
+	if nl {
+		tag.WriteString("\n")
 	}
 
 	return tag.String()
@@ -270,9 +278,12 @@ func (*MarkdownTranslator) setCloseTagAttributes(a any) string {
 		return ""
 	}
 
-	var tag strings.Builder
+	attrs, ok := a.(map[string]any)
+	if !ok {
+		return ""
+	}
 
-	attrs := a.(map[string]any)
+	var tag strings.Builder
 	if h, ok := attrs["href"]; ok {
 		tag.WriteString(fmt.Sprintf("(%s) ", h))
 	} else if h, ok := attrs["url"]; ok {

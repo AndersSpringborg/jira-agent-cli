@@ -24,12 +24,12 @@ func newLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("delete token: %w", err)
 			}
+
+			driver := f.DisplayDriver(cmd)
 			if deleted {
-				fmt.Printf("Removed token for profile '%s'.\n", profileName)
-			} else {
-				fmt.Printf("No token found for profile '%s'.\n", profileName)
+				return driver.Message("Removed token for profile '%s'.", profileName)
 			}
-			return nil
+			return driver.Message("No token found for profile '%s'.", profileName)
 		},
 	}
 }

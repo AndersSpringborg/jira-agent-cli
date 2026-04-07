@@ -12,16 +12,12 @@ import (
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
-		state     string
-		current   bool
-		prev      bool
-		next      bool
-		plain     bool
-		noHeaders bool
-		columns   string
-		csvOutput bool
-		rawOutput bool
-		table     bool
+		state   string
+		current bool
+		prev    bool
+		next    bool
+		columns string
+		raw     bool
 	)
 
 	cmd := &cobra.Command{
@@ -102,21 +98,14 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 			}
 
-			if rawOutput {
-				return output.JSON(sprints)
+			driver := f.DisplayDriver(cmd)
+
+			if raw {
+				return driver.Raw(sprints)
 			}
 
-			_ = table
-
-			defaultCols := []string{"id", "name", "state", "startDate", "endDate"}
-			cols := output.NormalizeFields(columns, defaultCols)
-
-			output.TableWithOptions(sprints, cols, "Sprints", output.TableOptions{
-				Plain:     plain,
-				NoHeaders: noHeaders,
-				CSV:       csvOutput,
-			})
-			return nil
+			cols := output.NormalizeFields(columns, []string{"id", "name", "state", "startDate", "endDate"})
+			return driver.List("Sprints", cols, sprints)
 		},
 	}
 
@@ -124,12 +113,8 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().BoolVar(&current, "current", false, "Show current active sprint")
 	cmd.Flags().BoolVar(&prev, "prev", false, "Show previous sprint")
 	cmd.Flags().BoolVar(&next, "next", false, "Show next planned sprint")
-	cmd.Flags().BoolVar(&plain, "plain", false, "Plain output")
-	cmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Don't print headers")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns")
-	cmd.Flags().BoolVar(&csvOutput, "csv", false, "CSV output")
-	cmd.Flags().BoolVar(&rawOutput, "raw", false, "Raw JSON output")
-	cmd.Flags().BoolVar(&table, "table", false, "Table view (default)")
+	cmd.Flags().BoolVar(&raw, "raw", false, "Raw JSON output")
 
 	return cmd
 }

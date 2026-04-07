@@ -88,16 +88,16 @@ func TestJSONDriver_Message(t *testing.T) {
 }
 
 func TestJSONDriver_Error(t *testing.T) {
+	// Error() writes to os.Stderr, not the driver's writer.
+	// We verify it doesn't return an error.
 	var buf bytes.Buffer
 	d := output.NewDriverWithWriter(output.FormatJSON, &buf)
 
 	err := d.Error(assert.AnError)
 	require.NoError(t, err)
 
-	var result map[string]any
-	err = json.Unmarshal(buf.Bytes(), &result)
-	require.NoError(t, err)
-	assert.Contains(t, result["error"], "assert.AnError")
+	// The buffer should be empty since Error() writes to stderr.
+	assert.Empty(t, buf.String())
 }
 
 // --- Markdown Driver Tests ---
@@ -255,12 +255,16 @@ func TestMarkdownDriver_Message(t *testing.T) {
 }
 
 func TestMarkdownDriver_Error(t *testing.T) {
+	// Error() writes to os.Stderr, not the driver's writer.
+	// We verify it doesn't return an error.
 	var buf bytes.Buffer
 	d := output.NewDriverWithWriter(output.FormatMarkdown, &buf)
 
 	err := d.Error(assert.AnError)
 	require.NoError(t, err)
-	assert.Contains(t, buf.String(), "**Error:**")
+
+	// The buffer should be empty since Error() writes to stderr.
+	assert.Empty(t, buf.String())
 }
 
 // --- Helper Function Tests ---

@@ -9,11 +9,8 @@ import (
 
 func newListCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
-		plain     bool
-		noHeaders bool
-		columns   string
-		csvOutput bool
-		raw       bool
+		columns string
+		raw     bool
 	)
 
 	cmd := &cobra.Command{
@@ -30,24 +27,18 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if raw {
-				return output.JSON(projects)
+				return driver.Raw(projects)
 			}
 
 			cols := output.NormalizeFields(columns, []string{"key", "name", "projectTypeKey"})
-			output.TableWithOptions(projects, cols, "Projects", output.TableOptions{
-				Plain:     plain,
-				NoHeaders: noHeaders,
-				CSV:       csvOutput,
-			})
-			return nil
+			return driver.List("Projects", cols, projects)
 		},
 	}
 
-	cmd.Flags().BoolVar(&plain, "plain", false, "Plain output (tab-separated)")
-	cmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Don't print column headers")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
-	cmd.Flags().BoolVar(&csvOutput, "csv", false, "Output in CSV format")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON")
 
 	return cmd

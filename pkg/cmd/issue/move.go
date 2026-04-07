@@ -34,12 +34,17 @@ func newMoveCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if len(args) < 2 {
-				fmt.Println("Available transitions:")
+				rows := make([]map[string]any, 0, len(transitions))
 				for _, t := range transitions {
-					fmt.Printf("  %s (id: %v)\n", t["name"], t["id"])
+					rows = append(rows, map[string]any{
+						"name": t["name"],
+						"id":   t["id"],
+					})
 				}
-				return nil
+				return driver.List("Transitions", []string{"name", "id"}, rows)
 			}
 
 			targetState := args[1]
@@ -73,8 +78,7 @@ func newMoveCmd(f *cmdutil.Factory) *cobra.Command {
 			_ = resolution
 			_ = assignee
 
-			fmt.Printf("Transitioned %s to %s\n", issueKey, targetState)
-			return nil
+			return driver.Message("Transitioned %s to %s", issueKey, targetState)
 		},
 	}
 

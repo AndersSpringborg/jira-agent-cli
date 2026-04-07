@@ -39,8 +39,8 @@ func newUnlinkCmd(f *cmdutil.Factory) *cobra.Command {
 					if err := client.DeleteIssueLink(linkID); err != nil {
 						return err
 					}
-					fmt.Printf("Unlinked %s and %s\n", issue1, issue2)
-					return nil
+					driver := f.DisplayDriver(cmd)
+					return driver.Message("Unlinked %s and %s", issue1, issue2)
 				}
 			}
 

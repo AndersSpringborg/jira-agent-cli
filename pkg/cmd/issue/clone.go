@@ -1,11 +1,9 @@
 package issue
 
 import (
-	"fmt"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
-	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -55,12 +53,13 @@ func newCloneCmd(f *cmdutil.Factory) *cobra.Command {
 				_ = replace
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if rawOutput {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
-			fmt.Printf("Cloned %s to %v\n", issueKey, data["key"])
-			return nil
+			return driver.Message("Cloned %s to %v", issueKey, data["key"])
 		},
 	}
 

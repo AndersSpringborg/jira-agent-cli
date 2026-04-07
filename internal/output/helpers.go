@@ -5,14 +5,6 @@ import (
 	"strings"
 )
 
-// TableOptions holds configuration for table output.
-// Retained for backward compatibility with existing commands.
-type TableOptions struct {
-	Plain     bool
-	NoHeaders bool
-	CSV       bool
-}
-
 // FormatValue extracts a display string from a value that might be
 // a nested map (e.g. {"name": "High"} or {"displayName": "Jane"}).
 // Returns the string representation for display.
@@ -84,39 +76,6 @@ func NormalizeFields(userColumns string, defaults []string) []string {
 		return defaults
 	}
 	return result
-}
-
-// Convenience functions for backward compatibility with existing commands.
-// These use the default JSON driver.
-
-// JSON writes data as pretty-printed JSON to stdout.
-func JSON(data any) error {
-	d := &JSONDriver{w: defaultWriter()}
-	return d.Raw(data)
-}
-
-// NDJSON writes each row as a single-line JSON object (newline-delimited JSON).
-func NDJSON(rows []map[string]any) error {
-	w := defaultWriter()
-	for _, row := range rows {
-		d := &JSONDriver{w: w}
-		if err := d.Raw(row); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// Table renders rows as a simple table to stdout.
-func Table(rows []map[string]any, cols []string, title string) {
-	d := NewDriver(FormatJSON)
-	_ = d.List(title, cols, rows)
-}
-
-// TableWithOptions renders rows as a table with the given options.
-func TableWithOptions(rows []map[string]any, cols []string, title string, opts TableOptions) {
-	d := NewDriver(FormatJSON)
-	_ = d.List(title, cols, rows)
 }
 
 // Green returns the string as-is. No ANSI colors in AI-first output.

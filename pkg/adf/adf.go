@@ -236,7 +236,7 @@ func (a *Translator) visit(n *Node, depth int) {
 func sanitize(s string) string {
 	s = strings.TrimSpace(s)
 	s = strings.TrimRight(s, "\n")
-	s = strings.ReplaceAll(s, "<", "❬")
-	s = strings.ReplaceAll(s, ">", "❭")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
 	return s
 }

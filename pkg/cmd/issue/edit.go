@@ -98,8 +98,8 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Updated issue: %s\n", issueKey)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Updated issue: %s", issueKey)
 		},
 	}
 

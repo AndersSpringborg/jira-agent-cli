@@ -29,28 +29,27 @@ func newAssignCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if user == "x" {
 				if err := client.AssignIssue(issueKey, "", "", ""); err != nil {
 					return err
 				}
-				fmt.Printf("Unassigned issue: %s\n", issueKey)
-				return nil
+				return driver.Message("Unassigned issue: %s", issueKey)
 			}
 
 			if user == "default" {
 				if err := client.AssignIssue(issueKey, "-1", "", ""); err != nil {
 					return err
 				}
-				fmt.Printf("Assigned issue %s to default assignee\n", issueKey)
-				return nil
+				return driver.Message("Assigned issue %s to default assignee", issueKey)
 			}
 
 			if err := client.AssignIssue(issueKey, user, user, ""); err != nil {
 				return err
 			}
 
-			fmt.Printf("Assigned issue %s to %s\n", issueKey, user)
-			return nil
+			return driver.Message("Assigned issue %s to %s", issueKey, user)
 		},
 	}
 

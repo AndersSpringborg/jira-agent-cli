@@ -1,7 +1,6 @@
 package issue
 
 import (
-	"fmt"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -28,8 +27,8 @@ func newLinkCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Linked %s %s %s\n", issue1, linkType, issue2)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Linked %s %s %s", issue1, linkType, issue2)
 		},
 	}
 

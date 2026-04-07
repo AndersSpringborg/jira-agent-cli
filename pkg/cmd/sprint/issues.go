@@ -12,7 +12,6 @@ import (
 
 func newIssuesCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
-		format string
 		fields string
 		raw    bool
 	)
@@ -37,19 +36,20 @@ func newIssuesCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if format == "json" || raw {
-				return output.JSON(data)
+			driver := f.DisplayDriver(cmd)
+
+			if raw {
+				return driver.Raw(data)
 			}
 
 			issuesRaw, ok := data["issues"]
 			if !ok {
-				fmt.Println("No issues found.")
-				return nil
+				return driver.Message("No issues found.")
 			}
 
 			issues, ok := issuesRaw.([]any)
 			if !ok {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
 			cols := output.NormalizeFields(fields, []string{"key", "summary", "status", "assignee", "priority"})
@@ -72,16 +72,10 @@ func newIssuesCmd(f *cmdutil.Factory) *cobra.Command {
 				rows = append(rows, row)
 			}
 
-			if format == "ndjson" {
-				return output.NDJSON(rows)
-			}
-
-			output.Table(rows, cols, "Sprint Issues")
-			return nil
+			return driver.List("Sprint Issues", cols, rows)
 		},
 	}
 
-	cmd.Flags().StringVar(&format, "format", "table", "Output format (table, json, ndjson)")
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated columns")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON")
 

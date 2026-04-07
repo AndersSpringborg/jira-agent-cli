@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 )
 
@@ -24,19 +25,27 @@ func (d *MarkdownDriver) Item(title string, data map[string]any) error {
 			}
 		}
 	}
-	fmt.Fprintf(d.w, "## %s\n\n", heading)
+	if _, err := fmt.Fprintf(d.w, "## %s\n\n", heading); err != nil {
+		return err
+	}
 
 	// Render fields as a key-value table
-	d.renderFieldTable(data)
+	if err := d.renderFieldTable(data); err != nil {
+		return err
+	}
 
 	// Render description if present (nested under fields)
 	if fields, ok := data["fields"].(map[string]any); ok {
 		if desc := fields["description"]; desc != nil {
-			fmt.Fprintf(d.w, "\n### Description\n\n%s\n", ADFToMarkdown(desc))
+			if _, err := fmt.Fprintf(d.w, "\n### Description\n\n%s\n", ADFToMarkdown(desc)); err != nil {
+				return err
+			}
 		}
 
 		// Render comments if present
-		d.renderComments(fields)
+		if err := d.renderComments(fields); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -44,19 +53,25 @@ func (d *MarkdownDriver) Item(title string, data map[string]any) error {
 
 func (d *MarkdownDriver) List(title string, columns []string, rows []map[string]any) error {
 	if len(rows) == 0 {
-		fmt.Fprintf(d.w, "No %s found.\n", strings.ToLower(title))
-		return nil
+		_, err := fmt.Fprintf(d.w, "No %s found.\n", strings.ToLower(title))
+		return err
 	}
 
-	fmt.Fprintf(d.w, "## %s (%d)\n\n", title, len(rows))
+	if _, err := fmt.Fprintf(d.w, "## %s (%d)\n\n", title, len(rows)); err != nil {
+		return err
+	}
 
 	// Markdown table header
-	fmt.Fprintf(d.w, "| %s |\n", strings.Join(columns, " | "))
+	if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(columns, " | ")); err != nil {
+		return err
+	}
 	seps := make([]string, len(columns))
 	for i := range seps {
 		seps[i] = "---"
 	}
-	fmt.Fprintf(d.w, "| %s |\n", strings.Join(seps, " | "))
+	if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(seps, " | ")); err != nil {
+		return err
+	}
 
 	// Markdown table rows
 	for _, row := range rows {
@@ -64,7 +79,9 @@ func (d *MarkdownDriver) List(title string, columns []string, rows []map[string]
 		for i, col := range columns {
 			vals[i] = FormatValue(row[col])
 		}
-		fmt.Fprintf(d.w, "| %s |\n", strings.Join(vals, " | "))
+		if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(vals, " | ")); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -78,44 +95,53 @@ func (d *MarkdownDriver) Raw(data any) error {
 }
 
 func (d *MarkdownDriver) Message(format string, args ...any) error {
-	fmt.Fprintf(d.w, format+"\n", args...)
-	return nil
+	_, err := fmt.Fprintf(d.w, format+"\n", args...)
+	return err
 }
 
 func (d *MarkdownDriver) Error(err error) error {
-	fmt.Fprintf(d.w, "**Error:** %s\n", err.Error())
-	return nil
+	_, werr := fmt.Fprintf(os.Stderr, "**Error:** %s\n", err.Error())
+	return werr
 }
 
 // renderFieldTable renders the top-level scalar fields of an item
 // as a markdown key-value table.
-func (d *MarkdownDriver) renderFieldTable(data map[string]any) {
+func (d *MarkdownDriver) renderFieldTable(data map[string]any) error {
 	// Collect fields to render. If there's a nested "fields" object
 	// (Jira issue structure), extract displayable fields from it.
 	fields := extractDisplayFields(data)
 	if len(fields) == 0 {
-		return
+		return nil
 	}
 
-	fmt.Fprintf(d.w, "| Field | Value |\n")
-	fmt.Fprintf(d.w, "| --- | --- |\n")
-	for _, kv := range fields {
-		fmt.Fprintf(d.w, "| %s | %s |\n", kv[0], kv[1])
+	if _, err := fmt.Fprintf(d.w, "| Field | Value |\n"); err != nil {
+		return err
 	}
+	if _, err := fmt.Fprintf(d.w, "| --- | --- |\n"); err != nil {
+		return err
+	}
+	for _, kv := range fields {
+		if _, err := fmt.Fprintf(d.w, "| %s | %s |\n", kv[0], kv[1]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // renderComments renders issue comments as markdown sections.
-func (d *MarkdownDriver) renderComments(fields map[string]any) {
+func (d *MarkdownDriver) renderComments(fields map[string]any) error {
 	commentField, ok := fields["comment"].(map[string]any)
 	if !ok {
-		return
+		return nil
 	}
 	commentList, ok := commentField["comments"].([]any)
 	if !ok || len(commentList) == 0 {
-		return
+		return nil
 	}
 
-	fmt.Fprintf(d.w, "\n### Comments (%d)\n", len(commentList))
+	if _, err := fmt.Fprintf(d.w, "\n### Comments (%d)\n", len(commentList)); err != nil {
+		return err
+	}
 	for _, c := range commentList {
 		cm, ok := c.(map[string]any)
 		if !ok {
@@ -129,8 +155,11 @@ func (d *MarkdownDriver) renderComments(fields map[string]any) {
 		if c, ok := cm["created"].(string); ok {
 			created = fmt.Sprintf(" (%s)", c)
 		}
-		fmt.Fprintf(d.w, "\n**%s**%s:\n%s\n", author, created, ADFToMarkdown(cm["body"]))
+		if _, err := fmt.Fprintf(d.w, "\n**%s**%s:\n%s\n", author, created, ADFToMarkdown(cm["body"])); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // extractDisplayFields pulls scalar/displayable fields from a data map.

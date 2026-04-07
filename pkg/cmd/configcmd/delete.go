@@ -28,15 +28,14 @@ func newDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
 			if config.DeleteProfile(cfg, profile) {
 				if err := config.Save(cfg); err != nil {
 					return err
 				}
-				fmt.Printf("Profile '%s' deleted.\n", profile)
-			} else {
-				fmt.Printf("Profile '%s' not found.\n", profile)
+				return driver.Message("Profile '%s' deleted.", profile)
 			}
-			return nil
+			return driver.Message("Profile '%s' not found.", profile)
 		},
 	}
 

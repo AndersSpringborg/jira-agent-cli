@@ -1,7 +1,6 @@
 package issue
 
 import (
-	"fmt"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -26,8 +25,8 @@ func newDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Deleted issue: %s\n", issueKey)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Deleted issue: %s", issueKey)
 		},
 	}
 

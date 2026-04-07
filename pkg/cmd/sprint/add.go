@@ -35,8 +35,8 @@ func newAddCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Added %d issue(s) to sprint %d\n", len(issueKeys), sprintID)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Added %d issue(s) to sprint %d", len(issueKeys), sprintID)
 		},
 	}
 

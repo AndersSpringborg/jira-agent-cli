@@ -1,8 +1,6 @@
 package context
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -32,9 +30,10 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 
 			profileName := f.ResolveProfileName(cfg)
 			profile := config.GetProfile(cfg, profileName)
+			driver := f.DisplayDriver(cmd)
+
 			if profile == nil || profile.Context == nil {
-				fmt.Printf("No context to clear for profile '%s'.\n", profileName)
-				return nil
+				return driver.Message("No context to clear for profile '%s'.", profileName)
 			}
 
 			noSpecific := !project && !boardID && !epic && !labels && !issueType && !status && !assignee && !display
@@ -77,11 +76,9 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if noSpecific {
-				fmt.Printf("Context cleared for profile '%s'.\n", profileName)
-			} else {
-				fmt.Printf("Context updated for profile '%s'.\n", profileName)
+				return driver.Message("Context cleared for profile '%s'.", profileName)
 			}
-			return nil
+			return driver.Message("Context updated for profile '%s'.", profileName)
 		},
 	}
 

@@ -88,8 +88,8 @@ Jira Server / Data Center (Personal Access Token):
 				return fmt.Errorf("save config: %w", err)
 			}
 
-			fmt.Printf("Token stored for profile '%s'\n", profileName)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Token stored for profile '%s'", profileName)
 		},
 	}
 

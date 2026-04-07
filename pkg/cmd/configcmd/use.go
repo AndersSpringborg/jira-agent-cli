@@ -29,8 +29,9 @@ func newUseCmd(f *cmdutil.Factory) *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
-			fmt.Printf("Default profile set to '%s'.\n", profile)
-			return nil
+
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Default profile set to '%s'.", profile)
 		},
 	}
 

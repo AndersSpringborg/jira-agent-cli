@@ -1,8 +1,6 @@
 package context
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 	"AndersSpringborg/jira-cli/internal/output"
@@ -74,8 +72,8 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Context updated for profile '%s'.\n", profileName)
-			return nil
+			driver := f.DisplayDriver(cmd)
+			return driver.Message("Context updated for profile '%s'.", profileName)
 		},
 	}
 

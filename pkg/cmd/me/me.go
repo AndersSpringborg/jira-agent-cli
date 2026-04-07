@@ -1,10 +1,7 @@
 package me
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
-	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -27,12 +24,13 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if raw {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
-			fmt.Println(data["displayName"])
-			return nil
+			return driver.Message("%s", data["displayName"])
 		},
 	}
 

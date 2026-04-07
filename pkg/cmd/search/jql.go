@@ -1,8 +1,6 @@
 package search
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/output"
 
@@ -12,10 +10,7 @@ import (
 func newJQLCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
 		maxResults int
-		plain      bool
-		noHeaders  bool
 		columns    string
-		csvOutput  bool
 		raw        bool
 	)
 
@@ -36,19 +31,20 @@ func newJQLCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			if raw {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
 			issuesRaw, ok := data["issues"]
 			if !ok {
-				fmt.Println("No issues found.")
-				return nil
+				return driver.Message("No issues found.")
 			}
 
 			issues, ok := issuesRaw.([]any)
 			if !ok {
-				return output.JSON(data)
+				return driver.Raw(data)
 			}
 
 			cols := output.NormalizeFields(columns, []string{"key", "summary", "status", "assignee", "priority"})
@@ -76,20 +72,12 @@ func newJQLCmd(f *cmdutil.Factory) *cobra.Command {
 				rows = append(rows, row)
 			}
 
-			output.TableWithOptions(rows, cols, "Issues", output.TableOptions{
-				Plain:     plain,
-				NoHeaders: noHeaders,
-				CSV:       csvOutput,
-			})
-			return nil
+			return driver.List("Issues", cols, rows)
 		},
 	}
 
 	cmd.Flags().IntVar(&maxResults, "max", 50, "Max results")
-	cmd.Flags().BoolVar(&plain, "plain", false, "Plain output (tab-separated)")
-	cmd.Flags().BoolVar(&noHeaders, "no-headers", false, "Don't print column headers")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
-	cmd.Flags().BoolVar(&csvOutput, "csv", false, "Output in CSV format")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON response")
 
 	return cmd

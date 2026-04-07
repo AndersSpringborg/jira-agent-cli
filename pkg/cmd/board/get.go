@@ -5,16 +5,12 @@ import (
 	"strconv"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
-	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
 
 func newGetCmd(f *cmdutil.Factory) *cobra.Command {
-	var (
-		format string
-		raw    bool
-	)
+	var raw bool
 
 	cmd := &cobra.Command{
 		Use:   "get <board-id>",
@@ -36,17 +32,16 @@ func newGetCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if format == "json" || raw {
-				return output.JSON(data)
+			driver := f.DisplayDriver(cmd)
+
+			if raw {
+				return driver.Raw(data)
 			}
 
-			cols := []string{"id", "name", "type"}
-			output.Table([]map[string]any{data}, cols, "Board")
-			return nil
+			return driver.Item("Board", data)
 		},
 	}
 
-	cmd.Flags().StringVar(&format, "format", "table", "Output format (table, json)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON")
 
 	return cmd

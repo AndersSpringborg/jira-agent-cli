@@ -24,12 +24,12 @@ func newStatusCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get token: %w", err)
 			}
+
+			driver := f.DisplayDriver(cmd)
 			if token != "" {
-				fmt.Printf("Token available for profile '%s'.\n", profileName)
-			} else {
-				fmt.Printf("No token for profile '%s'.\n", profileName)
+				return driver.Message("Token available for profile '%s'.", profileName)
 			}
-			return nil
+			return driver.Message("No token for profile '%s'.", profileName)
 		},
 	}
 }

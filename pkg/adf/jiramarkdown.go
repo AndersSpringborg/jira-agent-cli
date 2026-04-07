@@ -59,26 +59,26 @@ func nodePanelOpenHook(n Connector) string {
 
 	tag.WriteString("\n{panel")
 	if attrs != nil {
-		a := attrs.(map[string]interface{})
-		if len(a) > 0 {
+		a, ok := attrs.(map[string]interface{})
+		if ok && len(a) > 0 {
 			tag.WriteString(":")
-		}
-		for k, v := range a {
-			if k == "panelType" {
-				switch v {
-				case panelTypeInfo:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorInfo))
-				case panelTypeNote:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorNote))
-				case panelTypeError:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorError))
-				case panelTypeSuccess:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorSuccess))
-				case panelTypeWarning:
-					tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorWarning))
+			for k, v := range a {
+				if k == "panelType" {
+					switch v {
+					case panelTypeInfo:
+						tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorInfo))
+					case panelTypeNote:
+						tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorNote))
+					case panelTypeError:
+						tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorError))
+					case panelTypeSuccess:
+						tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorSuccess))
+					case panelTypeWarning:
+						tag.WriteString(fmt.Sprintf("bgColor=%s", bgColorWarning))
+					}
+				} else {
+					tag.WriteString(fmt.Sprintf("|%s=%s", k, v))
 				}
-			} else {
-				tag.WriteString(fmt.Sprintf("|%s=%s", k, v))
 			}
 		}
 	}

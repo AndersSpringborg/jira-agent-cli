@@ -1,8 +1,6 @@
 package configcmd
 
 import (
-	"fmt"
-
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -19,14 +17,18 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			for _, name := range config.ListProfiles(cfg) {
-				marker := " "
-				if name == cfg.DefaultProfile {
-					marker = "*"
-				}
-				fmt.Printf("%s %s\n", marker, name)
+			driver := f.DisplayDriver(cmd)
+			profiles := config.ListProfiles(cfg)
+			rows := make([]map[string]any, 0, len(profiles))
+			for _, name := range profiles {
+				isDefault := name == cfg.DefaultProfile
+				rows = append(rows, map[string]any{
+					"name":    name,
+					"default": isDefault,
+				})
 			}
-			return nil
+
+			return driver.List("Profiles", []string{"name", "default"}, rows)
 		},
 	}
 }

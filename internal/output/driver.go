@@ -64,11 +64,6 @@ func NewDriverWithWriter(format Format, w io.Writer) DisplayDriver {
 	}
 }
 
-// defaultWriter returns the default output writer (stdout).
-func defaultWriter() io.Writer {
-	return os.Stdout
-}
-
 // ParseFormat parses a format string into a Format constant.
 // Returns an error for unrecognized formats.
 func ParseFormat(s string) (Format, error) {

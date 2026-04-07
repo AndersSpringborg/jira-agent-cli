@@ -38,6 +38,8 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 				targetURL = fmt.Sprintf("%s/browse/%s", client.BaseURL, issueKey)
 			}
 
+			driver := f.DisplayDriver(cmd)
+
 			var openCmd *exec.Cmd
 			switch runtime.GOOS {
 			case "darwin":
@@ -47,16 +49,13 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 			case "windows":
 				openCmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", targetURL)
 			default:
-				fmt.Println(targetURL)
-				return nil
+				return driver.Message("%s", targetURL)
 			}
 
 			if err := openCmd.Start(); err != nil {
-				fmt.Println(targetURL)
-				return nil
+				return driver.Message("%s", targetURL)
 			}
-			fmt.Printf("Opening %s\n", targetURL)
-			return nil
+			return driver.Message("Opening %s", targetURL)
 		},
 	}
 

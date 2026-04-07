@@ -5,7 +5,6 @@ import (
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
-	"AndersSpringborg/jira-cli/internal/output"
 
 	"github.com/spf13/cobra"
 )
@@ -58,7 +57,8 @@ func newShowCmd(f *cmdutil.Factory) *cobra.Command {
 				data["context"] = ctx
 			}
 
-			return output.JSON(data)
+			driver := f.DisplayDriver(cmd)
+			return driver.Item("Profile", data)
 		},
 	}
 }
