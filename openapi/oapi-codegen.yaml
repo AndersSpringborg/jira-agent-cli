@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/HEAD/configuration-schema.json
+package: cloud
+output: pkg/jira/cloud/client.gen.go
+generate:
+  client: true
+  models: true
+  embedded-spec: false
+output-options:
+  skip-prune: false
+  skip-fmt: false
+  nullable-type: true
