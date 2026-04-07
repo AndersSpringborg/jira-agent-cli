@@ -7,6 +7,7 @@ import (
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
 	"AndersSpringborg/jira-cli/pkg/cmd/configcmd"
 	cmdcontext "AndersSpringborg/jira-cli/pkg/cmd/context"
+	"AndersSpringborg/jira-cli/pkg/cmd/feedback"
 	"AndersSpringborg/jira-cli/pkg/cmd/install"
 	"AndersSpringborg/jira-cli/pkg/cmd/issue"
 	"AndersSpringborg/jira-cli/pkg/cmd/me"
@@ -61,6 +62,7 @@ Examples:
 	cmd.AddCommand(open.NewCmd(f))
 	cmd.AddCommand(ping.NewCmd(f))
 	cmd.AddCommand(install.NewCmd(cmd))
+	cmd.AddCommand(feedback.NewCmd(f))
 
 	return cmd
 }

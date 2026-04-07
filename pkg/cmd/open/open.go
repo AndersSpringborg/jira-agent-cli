@@ -2,8 +2,6 @@ package open
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -40,19 +38,7 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 
 			driver := f.DisplayDriver(cmd)
 
-			var openCmd *exec.Cmd
-			switch runtime.GOOS {
-			case "darwin":
-				openCmd = exec.Command("open", targetURL)
-			case "linux":
-				openCmd = exec.Command("xdg-open", targetURL)
-			case "windows":
-				openCmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", targetURL)
-			default:
-				return driver.Message("%s", targetURL)
-			}
-
-			if err := openCmd.Start(); err != nil {
+			if err := cmdutil.OpenBrowser(targetURL); err != nil {
 				return driver.Message("%s", targetURL)
 			}
 			return driver.Message("Opening %s", targetURL)
