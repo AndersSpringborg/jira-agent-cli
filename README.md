@@ -10,6 +10,16 @@ This project takes a different approach. It is the **kubectl** of Jira: non-inte
 
 ## Install
 
+### npm (recommended)
+
+```bash
+npm install -g @888aaen/jira-cli
+```
+
+This installs the `jira` binary for your platform. Works on macOS (arm64, x64), Linux (x64, arm64), and Windows (x64).
+
+### Build from source
+
 **Prerequisites:** [Go 1.25+](https://go.dev/dl/)
 
 ```bash
@@ -25,6 +35,21 @@ To uninstall:
 ```bash
 sudo make uninstall
 ```
+
+## Quick Start (AI Agent)
+
+Give your AI agent Jira superpowers in one command:
+
+```bash
+npx skills add 888aaen/jira-cli -g -y
+```
+
+This installs the jira-cli [skill](https://sdk.vercel.ai/docs/ai-sdk-core/agents#primitives-for-agentic-patterns) into your agent's configuration. The skill teaches the agent how to authenticate, search, create, edit, and manage Jira issues -- no manual prompt engineering required.
+
+After adding the skill, the agent will:
+1. Check for an existing Jira auth session
+2. Guide you through login if needed
+3. Use the right `jira` command for any Jira-related request
 
 ## Quick Start
 
