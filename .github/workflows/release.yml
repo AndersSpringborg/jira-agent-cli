@@ -30,8 +30,10 @@ jobs:
         with:
           node-version: '20'
 
+      - uses: oven-sh/setup-bun@v2
+
       - name: Install semantic-release
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Get latest tag before release
         id: before
@@ -40,7 +42,7 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Semantic Release
-        run: npx semantic-release
+        run: bunx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
