@@ -311,6 +311,99 @@ func TestBasicAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestAssignIssue(t *testing.T) {
+	t.Run("assign by account ID", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "PUT", r.Method)
+			assert.Equal(t, "/rest/api/3/issue/TEST-1/assignee", r.URL.Path)
+
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, "abc123", body["accountId"])
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		err := client.AssignIssue("TEST-1", "abc123", "", "")
+		assert.NoError(t, err)
+	})
+
+	t.Run("unassign sends null accountId", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "PUT", r.Method)
+
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Nil(t, body["accountId"])
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		err := client.AssignIssue("TEST-1", "", "", "")
+		assert.NoError(t, err)
+	})
+
+	t.Run("assign by name when accountID is empty", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, "jsmith", body["name"])
+			_, hasAccountID := body["accountId"]
+			assert.False(t, hasAccountID)
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		err := client.AssignIssue("TEST-1", "", "jsmith", "")
+		assert.NoError(t, err)
+	})
+}
+
+// TestAssignToMe verifies the two-step flow used by "jira issue assign ISSUE me":
+// 1. GetMyself() returns the current user's accountId
+// 2. AssignIssue() sends that accountId to the API
+func TestAssignToMe(t *testing.T) {
+	callCount := 0
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/rest/api/3/myself":
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"accountId":   "user-abc-123",
+				"displayName": "Jane Smith",
+			})
+
+		case r.Method == "PUT" && r.URL.Path == "/rest/api/3/issue/PROJ-42/assignee":
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, "user-abc-123", body["accountId"])
+			w.WriteHeader(204)
+
+		default:
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			w.WriteHeader(404)
+		}
+	})
+	defer server.Close()
+
+	// Step 1: resolve "me" to an account ID
+	data, err := client.GetMyself()
+	require.NoError(t, err)
+
+	accountID, ok := data["accountId"].(string)
+	require.True(t, ok)
+	assert.Equal(t, "user-abc-123", accountID)
+
+	// Step 2: assign using the resolved account ID
+	err = client.AssignIssue("PROJ-42", accountID, "", "")
+	assert.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+}
+
 func TestBearerAuth(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer my-pat", r.Header.Get("Authorization"))
