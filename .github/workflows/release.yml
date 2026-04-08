@@ -137,6 +137,12 @@ jobs:
             fi
           done
 
+      - name: Copy README into npm packages
+        run: |
+          for pkg in npm/jira-cli npm/jira-cli-linux-x64 npm/jira-cli-linux-arm64 npm/jira-cli-darwin-x64 npm/jira-cli-darwin-arm64 npm/jira-cli-win32-x64; do
+            cp README.md "$pkg/README.md"
+          done
+
       - name: Set versions and publish platform packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
