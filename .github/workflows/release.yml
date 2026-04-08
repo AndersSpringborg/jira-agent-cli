@@ -125,11 +125,13 @@ jobs:
             mkdir -p "$(dirname "$dest")"
 
             if [[ "$dest" == *.exe ]]; then
-              # Windows archive is .zip
+              # Windows archive is .zip — unzip creates a subdirectory
               unzip -o "tmp/${archive_base}.zip" -d "tmp/${archive_base}"
               cp "tmp/${archive_base}/jira.exe" "$dest"
             else
-              tar xzf "tmp/${archive_base}.tar.gz" -C "tmp/"
+              # tar.gz archives are flat — extract into a named subdirectory
+              mkdir -p "tmp/${archive_base}"
+              tar xzf "tmp/${archive_base}.tar.gz" -C "tmp/${archive_base}"
               cp "tmp/${archive_base}/jira" "$dest"
               chmod +x "$dest"
             fi
