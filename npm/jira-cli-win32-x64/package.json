@@ -1,0 +1,13 @@
+{
+  "name": "@888aaen/jira-cli-win32-x64",
+  "version": "0.0.0",
+  "description": "jira-cli binary for Windows x64",
+  "os": ["win32"],
+  "cpu": ["x64"],
+  "license": "MIT",
+  "preferUnplugged": true,
+  "files": ["bin/jira.exe"],
+  "bin": {
+    "jira": "bin/jira.exe"
+  }
+}

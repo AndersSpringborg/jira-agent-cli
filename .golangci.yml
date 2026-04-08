@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+
+  settings:
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+
+  exclusions:
+    paths:
+      - pkg/jira/cloud  # generated code
+
+formatters:
+  enable:
+    - gofmt

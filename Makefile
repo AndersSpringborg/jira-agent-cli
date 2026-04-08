@@ -2,7 +2,7 @@ BINARY_NAME=jira
 BUILD_DIR=bin
 MAIN_PKG=./cmd/jira
 
-.PHONY: all build clean tidy run dev install uninstall
+.PHONY: all build clean tidy run dev install uninstall lint test
 
 all: tidy build
 
@@ -27,3 +27,9 @@ install: build
 
 uninstall:
 	rm -f /usr/local/bin/$(BINARY_NAME)
+
+lint:
+	golangci-lint run ./...
+
+test:
+	go test ./...

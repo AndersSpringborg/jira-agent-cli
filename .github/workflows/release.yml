@@ -1,0 +1,165 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  ci:
+    name: CI
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    name: Semantic Release
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.check.outputs.new_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install semantic-release
+        run: npm ci
+
+      - name: Get latest tag before release
+        id: before
+        run: |
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Semantic Release
+        run: npx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if new version was released
+        id: check
+        run: |
+          git fetch --tags
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          if [ "${{ steps.before.outputs.tag }}" != "$TAG" ]; then
+            VERSION="${TAG#v}"
+            echo "new_release=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "New release: $VERSION"
+          else
+            echo "new_release=false" >> "$GITHUB_OUTPUT"
+            echo "No new release"
+          fi
+
+  goreleaser:
+    name: GoReleaser
+    needs: release
+    if: needs.release.outputs.new_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: v${{ needs.release.outputs.version }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-npm:
+    name: Publish to npm
+    needs: [release, goreleaser]
+    if: needs.release.outputs.new_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download release archives
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          mkdir -p tmp
+          gh release download "v${VERSION}" --dir tmp --pattern '*.tar.gz' --pattern '*.zip'
+
+      - name: Extract and place binaries
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          # Map: archive-os-arch -> npm-package-dir/binary-name
+          declare -A MAPPINGS=(
+            ["jira-cli-${VERSION}-linux-amd64"]="npm/jira-cli-linux-x64/bin/jira"
+            ["jira-cli-${VERSION}-linux-arm64"]="npm/jira-cli-linux-arm64/bin/jira"
+            ["jira-cli-${VERSION}-darwin-amd64"]="npm/jira-cli-darwin-x64/bin/jira"
+            ["jira-cli-${VERSION}-darwin-arm64"]="npm/jira-cli-darwin-arm64/bin/jira"
+            ["jira-cli-${VERSION}-windows-amd64"]="npm/jira-cli-win32-x64/bin/jira.exe"
+          )
+
+          for archive_base in "${!MAPPINGS[@]}"; do
+            dest="${MAPPINGS[$archive_base]}"
+            mkdir -p "$(dirname "$dest")"
+
+            if [[ "$dest" == *.exe ]]; then
+              # Windows archive is .zip
+              unzip -o "tmp/${archive_base}.zip" -d "tmp/${archive_base}"
+              cp "tmp/${archive_base}/jira.exe" "$dest"
+            else
+              tar xzf "tmp/${archive_base}.tar.gz" -C "tmp/"
+              cp "tmp/${archive_base}/jira" "$dest"
+              chmod +x "$dest"
+            fi
+          done
+
+      - name: Set versions and publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          for pkg in npm/jira-cli-linux-x64 npm/jira-cli-linux-arm64 npm/jira-cli-darwin-x64 npm/jira-cli-darwin-arm64 npm/jira-cli-win32-x64; do
+            cd "$pkg"
+            npm version "$VERSION" --no-git-tag-version --allow-same-version
+            npm publish --access public
+            cd "$GITHUB_WORKSPACE"
+          done
+
+      - name: Publish meta-package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          cd npm/jira-cli
+
+          # Update optionalDependencies versions
+          node -e "
+            const pkg = require('./package.json');
+            for (const dep of Object.keys(pkg.optionalDependencies || {})) {
+              pkg.optionalDependencies[dep] = '${VERSION}';
+            }
+            require('fs').writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+          "
+
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          npm publish --access public

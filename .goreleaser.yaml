@@ -1,0 +1,42 @@
+version: 2
+
+builds:
+  - binary: jira
+    main: ./cmd/jira
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X AndersSpringborg/jira-cli/internal/build.Version={{ .Version }} -X AndersSpringborg/jira-cli/internal/build.Date={{ .Date }}
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+
+archives:
+  - name_template: "jira-cli-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+
+release:
+  mode: append

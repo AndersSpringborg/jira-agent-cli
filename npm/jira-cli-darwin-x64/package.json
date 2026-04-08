@@ -1,0 +1,13 @@
+{
+  "name": "@888aaen/jira-cli-darwin-x64",
+  "version": "0.0.0",
+  "description": "jira-cli binary for macOS x64 (Intel)",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "license": "MIT",
+  "preferUnplugged": true,
+  "files": ["bin/jira"],
+  "bin": {
+    "jira": "bin/jira"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@888aaen/jira-cli",
+  "version": "0.0.0",
+  "description": "Jira CLI — kubectl for Jira, designed for AI agents and automation",
+  "license": "MIT",
+  "bin": {
+    "jira": "bin/run.js"
+  },
+  "files": ["bin/run.js"],
+  "optionalDependencies": {
+    "@888aaen/jira-cli-linux-x64": "0.0.0",
+    "@888aaen/jira-cli-linux-arm64": "0.0.0",
+    "@888aaen/jira-cli-darwin-x64": "0.0.0",
+    "@888aaen/jira-cli-darwin-arm64": "0.0.0",
+    "@888aaen/jira-cli-win32-x64": "0.0.0"
+  },
+  "keywords": ["jira", "cli", "automation", "ai-agent"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/888aaen/jira-cli.git"
+  }
+}

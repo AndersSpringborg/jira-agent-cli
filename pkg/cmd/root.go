@@ -22,12 +22,13 @@ import (
 )
 
 // NewRootCmd creates the root cobra command for the jira CLI.
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(version, date string) *cobra.Command {
 	f := &cmdutil.Factory{}
 
 	cmd := &cobra.Command{
-		Use:   "jira",
-		Short: "Jira CLI — kubectl for Jira, designed for AI agents",
+		Use:     "jira",
+		Short:   "Jira CLI — kubectl for Jira, designed for AI agents",
+		Version: version,
 		Long: `A non-interactive CLI for Jira designed for AI agents and automation.
 
 Output formats:
@@ -43,6 +44,8 @@ Examples:
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
+	cmd.SetVersionTemplate("jira version " + version + " (built " + date + ")\n")
 
 	// Global flags
 	cmd.PersistentFlags().StringVar(&f.Profile, "profile", "", "Config profile to use (default: from config or 'default')")
