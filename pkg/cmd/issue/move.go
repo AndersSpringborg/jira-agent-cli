@@ -63,9 +63,9 @@ func newMoveCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if transitionID == "" {
-				fmt.Fprintf(cmd.ErrOrStderr(), "No transition found matching '%s'. Available:\n", targetState)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "No transition found matching '%s'. Available:\n", targetState)
 				for _, t := range transitions {
-					fmt.Fprintf(cmd.ErrOrStderr(), "  %s (id: %v)\n", t["name"], t["id"])
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  %s (id: %v)\n", t["name"], t["id"])
 				}
 				return fmt.Errorf("invalid transition: %s", targetState)
 			}

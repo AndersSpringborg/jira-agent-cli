@@ -23,7 +23,7 @@ func TestDeleteIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.DeleteIssue("TEST-1", false)
 	assert.NoError(t, err)
@@ -41,7 +41,7 @@ func TestDeleteIssueWithCascade(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.DeleteIssue("TEST-1", true)
 	assert.NoError(t, err)

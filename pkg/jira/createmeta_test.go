@@ -36,7 +36,7 @@ func TestGetCreateMeta(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetCreateMeta(&CreateMetaRequest{
 		Projects:       "TEST",
@@ -114,7 +114,7 @@ func TestGetCreateMetaForJiraServerV9(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetCreateMetaForJiraServerV9(&CreateMetaRequest{
 		Projects:       "TEST",

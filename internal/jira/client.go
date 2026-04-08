@@ -176,11 +176,12 @@ func (c *Client) CloneIssue(key string, overrides map[string]any) (map[string]an
 func (c *Client) AssignIssue(key, accountID, name, _ string) error {
 	path := fmt.Sprintf("/rest/api/3/issue/%s/assignee", key)
 	body := map[string]any{}
-	if accountID != "" {
+	switch {
+	case accountID != "":
 		body["accountId"] = accountID
-	} else if name != "" {
+	case name != "":
 		body["name"] = name
-	} else {
+	default:
 		body["accountId"] = nil
 	}
 	return c.putNoContent(path, body)
@@ -372,7 +373,7 @@ func (c *Client) getJSON(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, c.formatError(resp)
@@ -390,7 +391,7 @@ func (c *Client) getJSONArray(path string) ([]map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, c.formatError(resp)
@@ -413,7 +414,7 @@ func (c *Client) postJSON(path string, body any) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, c.formatError(resp)
@@ -441,7 +442,7 @@ func (c *Client) putNoContent(path string, body any) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return c.formatError(resp)
@@ -454,7 +455,7 @@ func (c *Client) delete(path string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck // best-effort close on read path
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return c.formatError(resp)

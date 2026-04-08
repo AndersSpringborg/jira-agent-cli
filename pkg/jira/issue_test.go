@@ -38,7 +38,7 @@ func TestGetIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetIssue("TEST-1")
 	assert.NoError(t, err)
@@ -118,7 +118,7 @@ func TestGetIssueWithoutDescription(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetIssue("TEST-1")
 	assert.NoError(t, err)
@@ -170,7 +170,7 @@ func TestGetIssueV2(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetIssueV2("TEST-1")
 	assert.NoError(t, err)
@@ -336,7 +336,7 @@ func TestGetIssueRaw(t *testing.T) {
 			}))
 			defer server.Close()
 
-			client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+			client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 			out, err := c.giveClientCallFunc(client)
 			if !assert.NoError(t, err) {
 				return
@@ -372,7 +372,7 @@ func TestAssignIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.AssignIssue("TEST-1", "a12b3")
 	assert.NoError(t, err)
@@ -406,7 +406,7 @@ func TestGetIssueLinkTypes(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetIssueLinkTypes()
 	assert.NoError(t, err)
@@ -452,7 +452,7 @@ func TestLinkIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.LinkIssue("TEST-1", "TEST-2", "Blocks")
 	assert.NoError(t, err)
@@ -478,7 +478,7 @@ func TestUnlinkIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.UnlinkIssue("123")
 	assert.NoError(t, err)
@@ -502,7 +502,7 @@ func TestGetLinkID(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetLinkID("TEST-1", "TEST-2")
 	assert.NoError(t, err)
@@ -539,7 +539,7 @@ func TestAddIssueComment(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.AddIssueComment("TEST-1", "comment", false)
 	assert.NoError(t, err)
@@ -587,7 +587,7 @@ func TestAddIssueWorklog(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.AddIssueWorklog("TEST-1", "2022-01-01T01:02:02.000+0200", "1h", "comment", "")
 	assert.NoError(t, err)
@@ -623,7 +623,7 @@ func TestGetField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.GetField()
 	assert.NoError(t, err)
@@ -693,7 +693,7 @@ func TestRemoteLinkIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.RemoteLinkIssue("TEST-1", "weblink title", "http://weblink.com")
 	assert.NoError(t, err)
@@ -729,7 +729,7 @@ func TestWatchIssue(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.WatchIssue("TEST-1", "a12b3")
 	assert.NoError(t, err)

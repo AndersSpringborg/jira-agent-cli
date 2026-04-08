@@ -100,10 +100,10 @@ type Node struct {
 }
 
 // GetType gets node type.
-func (n Node) GetType() NodeType { return n.NodeType }
+func (n *Node) GetType() NodeType { return n.NodeType }
 
 // GetAttributes gets node attributes.
-func (n Node) GetAttributes() any { return n.Attributes }
+func (n *Node) GetAttributes() any { return n.Attributes }
 
 // NodeValue is an actual ADF node content.
 type NodeValue struct {

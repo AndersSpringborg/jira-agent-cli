@@ -132,8 +132,8 @@ func needsSudo(dir string) bool {
 		return true
 	}
 	name := f.Name()
-	f.Close()
-	os.Remove(name)
+	_ = f.Close()
+	_ = os.Remove(name)
 	return false
 }
 

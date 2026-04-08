@@ -41,7 +41,7 @@ func TestSprints(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.Sprints(2, "state=active,closed", 0, 10)
 	assert.NoError(t, err)
@@ -153,7 +153,7 @@ func TestSprintsInBoards(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 	actual := client.SprintsInBoards([]int{2}, "state=active,closed", 3)
 	expected := []*Sprint{
 		{
@@ -213,7 +213,7 @@ func TestSprintIssues(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.SprintIssues(2, "project=TEST AND status=Done ORDER BY created DESC", 0, 100)
 	assert.NoError(t, err)
@@ -330,7 +330,7 @@ func TestSprintIssuesAdd(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.SprintIssuesAdd("5", "TEST-1", "TEST-2")
 	assert.NoError(t, err)
@@ -362,7 +362,7 @@ func TestGetSprint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	sprint, err := client.GetSprint(5)
 	assert.NoError(t, err)
@@ -404,7 +404,7 @@ func TestEndSprint(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	err := client.EndSprint(5)
 	assert.NoError(t, err)

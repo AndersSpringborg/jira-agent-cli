@@ -137,7 +137,7 @@ type Client struct {
 type ClientFunc func(*Client)
 
 // NewClient instantiates new jira client.
-func NewClient(c Config, opts ...ClientFunc) *Client {
+func NewClient(c *Config, opts ...ClientFunc) *Client {
 	client := Client{
 		server:   strings.TrimSuffix(c.Server, "/"),
 		login:    c.Login,

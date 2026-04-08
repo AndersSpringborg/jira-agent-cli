@@ -64,7 +64,8 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			if current {
+			switch {
+			case current:
 				var filtered []map[string]any
 				for _, s := range sprints {
 					if st, _ := s["state"].(string); st == "active" {
@@ -72,7 +73,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 					}
 				}
 				sprints = filtered
-			} else if prev {
+			case prev:
 				var closed []map[string]any
 				for _, s := range sprints {
 					if st, _ := s["state"].(string); st == "closed" {
@@ -84,7 +85,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 				} else {
 					sprints = nil
 				}
-			} else if next {
+			case next:
 				var future []map[string]any
 				for _, s := range sprints {
 					if st, _ := s["state"].(string); st == "future" {

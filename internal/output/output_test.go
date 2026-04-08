@@ -343,11 +343,11 @@ func TestParseFormat(t *testing.T) {
 // --- Interface Compliance Tests ---
 
 func TestJSONDriverImplementsDisplayDriver(t *testing.T) {
-	var _ output.DisplayDriver = output.NewDriverWithWriter(output.FormatJSON, &bytes.Buffer{})
+	var _ output.DisplayDriver = output.NewDriverWithWriter(output.FormatJSON, &bytes.Buffer{}) //nolint:staticcheck // interface compliance check
 }
 
 func TestMarkdownDriverImplementsDisplayDriver(t *testing.T) {
-	var _ output.DisplayDriver = output.NewDriverWithWriter(output.FormatMarkdown, &bytes.Buffer{})
+	var _ output.DisplayDriver = output.NewDriverWithWriter(output.FormatMarkdown, &bytes.Buffer{}) //nolint:staticcheck // interface compliance check
 }
 
 // --- Integration-style tests: verify real Jira-like data flows ---

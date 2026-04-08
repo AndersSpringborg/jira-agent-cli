@@ -43,7 +43,7 @@ func TestGetMyself(t *testing.T) {
 		assert.Equal(t, "GET", r.Method)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"displayName":  "Jane Smith",
 			"emailAddress": "jane@example.com",
 			"accountId":    "abc123",
@@ -62,7 +62,7 @@ func TestGetIssue(t *testing.T) {
 		assert.Equal(t, "/rest/api/3/issue/TEST-1", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"key": "TEST-1",
 			"fields": map[string]any{
 				"summary": "Test issue",
@@ -85,7 +85,7 @@ func TestGetIssue_WithFields(t *testing.T) {
 		assert.Equal(t, "summary,status", r.URL.Query().Get("fields"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"key": "TEST-1"})
+		_ = json.NewEncoder(w).Encode(map[string]any{"key": "TEST-1"})
 	})
 	defer server.Close()
 
@@ -102,7 +102,7 @@ func TestSearch(t *testing.T) {
 		assert.Equal(t, "25", r.URL.Query().Get("maxResults"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"total": 1,
 			"issues": []any{
 				map[string]any{
@@ -130,7 +130,7 @@ func TestCreateIssue(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		fields := body["fields"].(map[string]any)
 		project := fields["project"].(map[string]any)
 		assert.Equal(t, "TEST", project["key"])
@@ -138,7 +138,7 @@ func TestCreateIssue(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"id":  "10001",
 			"key": "TEST-42",
 		})
@@ -168,7 +168,7 @@ func TestListBoards(t *testing.T) {
 		assert.Equal(t, "50", r.URL.Query().Get("maxResults"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"values": []any{
 				map[string]any{"id": float64(1), "name": "Board A", "type": "scrum"},
 				map[string]any{"id": float64(2), "name": "Board B", "type": "kanban"},
@@ -189,7 +189,7 @@ func TestListSprints(t *testing.T) {
 		assert.Equal(t, "active", r.URL.Query().Get("state"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"values": []any{
 				map[string]any{
 					"id":    float64(10),
@@ -212,7 +212,7 @@ func TestGetIssueTransitions(t *testing.T) {
 		assert.Equal(t, "/rest/api/3/issue/TEST-1/transitions", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"transitions": []any{
 				map[string]any{"id": "11", "name": "To Do"},
 				map[string]any{"id": "21", "name": "In Progress"},
@@ -233,7 +233,7 @@ func TestListProjects(t *testing.T) {
 		assert.Equal(t, "/rest/api/3/project", r.URL.Path)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]map[string]any{
+		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"key": "PROJ", "name": "My Project"},
 			{"key": "TEST", "name": "Test Project"},
 		})
@@ -252,7 +252,7 @@ func TestListUsers(t *testing.T) {
 		assert.Equal(t, "jane", r.URL.Query().Get("query"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]map[string]any{
+		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{"displayName": "Jane Smith", "accountId": "abc123"},
 		})
 	})
@@ -269,7 +269,7 @@ func TestErrorHandling(t *testing.T) {
 		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(400)
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"errorMessages": []string{"Issue does not exist"},
 				"errors":        map[string]string{},
 			})
@@ -285,7 +285,7 @@ func TestErrorHandling(t *testing.T) {
 	t.Run("non-json error", func(t *testing.T) {
 		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(500)
-			w.Write([]byte("Internal Server Error"))
+			_, _ = w.Write([]byte("Internal Server Error"))
 		})
 		defer server.Close()
 
@@ -303,7 +303,7 @@ func TestBasicAuth(t *testing.T) {
 		assert.Equal(t, "test-token", pass)
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	})
 	defer server.Close()
 
@@ -316,7 +316,7 @@ func TestBearerAuth(t *testing.T) {
 		assert.Equal(t, "Bearer my-pat", r.Header.Get("Authorization"))
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 	}))
 	defer server.Close()
 

@@ -42,7 +42,8 @@ func (c *Client) Project() ([]*Project, error) {
 	}
 
 	var out []*Project
-	for _, p := range *resp.JSON200 {
+	for i := range *resp.JSON200 {
+		p := &(*resp.JSON200)[i]
 		proj := &Project{}
 		if p.Key != nil {
 			proj.Key = *p.Key

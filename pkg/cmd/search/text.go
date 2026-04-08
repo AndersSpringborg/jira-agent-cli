@@ -34,9 +34,9 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			text := strings.Join(args, " ")
-			jql := fmt.Sprintf(`text ~ "%s"`, strings.ReplaceAll(text, `"`, `\"`))
+			jql := fmt.Sprintf(`text ~ "%s"`, strings.ReplaceAll(text, `"`, `\"`)) //nolint:gocritic // JQL syntax
 			if project != "" {
-				jql = fmt.Sprintf(`project = "%s" AND %s`, project, jql)
+				jql = fmt.Sprintf(`project = "%s" AND %s`, project, jql) //nolint:gocritic // JQL syntax
 			}
 			jql += " ORDER BY updated DESC"
 

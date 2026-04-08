@@ -78,15 +78,15 @@ Examples:
 				jqlParts = append(jqlParts, fmt.Sprintf("assignee = %s", assignee))
 			}
 			if status != "" {
-				jqlParts = append(jqlParts, fmt.Sprintf("status = \"%s\"", status))
+				jqlParts = append(jqlParts, fmt.Sprintf("status = \"%s\"", status)) //nolint:gocritic // JQL syntax
 			}
 			if issueType != "" {
-				jqlParts = append(jqlParts, fmt.Sprintf("issuetype = \"%s\"", issueType))
+				jqlParts = append(jqlParts, fmt.Sprintf("issuetype = \"%s\"", issueType)) //nolint:gocritic // JQL syntax
 			}
 			if len(labels) > 0 {
 				quoted := make([]string, len(labels))
 				for i, l := range labels {
-					quoted[i] = fmt.Sprintf(`"%s"`, l)
+					quoted[i] = fmt.Sprintf(`"%s"`, l) //nolint:gocritic // JQL syntax
 				}
 				jqlParts = append(jqlParts, fmt.Sprintf("labels in (%s)", strings.Join(quoted, ", ")))
 			}

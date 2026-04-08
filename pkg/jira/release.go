@@ -31,7 +31,8 @@ func (c *Client) Release(project string) ([]*ProjectVersion, error) {
 	}
 
 	var out []*ProjectVersion
-	for _, v := range *resp.JSON200 {
+	for i := range *resp.JSON200 {
+		v := &(*resp.JSON200)[i]
 		pv := &ProjectVersion{}
 		if v.Id != nil {
 			pv.ID = *v.Id

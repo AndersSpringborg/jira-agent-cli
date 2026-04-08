@@ -156,7 +156,8 @@ func (c *Client) userSearch(opt *UserSearchOptions, ver string) ([]*User, error)
 // convertUsers maps a slice of generated cloud User types to our domain User type.
 func convertUsers(users []cloud.User) []*User {
 	var out []*User
-	for _, u := range users {
+	for i := range users {
+		u := &users[i]
 		user := &User{}
 		if u.AccountId != nil {
 			user.AccountID = *u.AccountId

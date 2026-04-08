@@ -379,7 +379,7 @@ func constructCustomFieldsForEdit(fields map[string]string, configuredFields []I
 	for key, val := range fields {
 		for _, configured := range configuredFields {
 			identifier := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(configured.Name)), " ", "-")
-			if identifier != strings.ToLower(key) {
+			if !strings.EqualFold(identifier, key) {
 				continue
 			}
 
@@ -404,7 +404,7 @@ func constructCustomFieldsForEdit(fields map[string]string, configuredFields []I
 					data.Update.M.customFields[configured.Key] = pieces
 				}
 			case customFieldFormatNumber:
-				num, err := strconv.ParseFloat(val, 64) //nolint:gomnd
+				num, err := strconv.ParseFloat(val, 64)
 				if err != nil {
 					// Let Jira API handle data type error for now.
 					data.Update.M.customFields[configured.Key] = []customFieldTypeStringSet{{Set: val}}

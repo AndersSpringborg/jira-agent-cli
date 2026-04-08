@@ -29,7 +29,7 @@ func TestServerInfo(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.ServerInfo()
 	assert.NoError(t, err)

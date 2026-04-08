@@ -40,7 +40,7 @@ func TestTransitions(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	actual, err := client.Transitions("TEST")
 	assert.NoError(t, err)
@@ -93,7 +93,7 @@ func TestTransition(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(Config{Server: server.URL}, WithTimeout(3*time.Second))
+	client := NewClient(&Config{Server: server.URL}, WithTimeout(3*time.Second))
 
 	requestData := TransitionRequest{Transition: &TransitionRequestData{
 		ID:   "31",

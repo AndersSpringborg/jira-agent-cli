@@ -60,7 +60,9 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 				update := map[string]any{}
 				if len(add) > 0 || len(remove) > 0 {
-					ops := append(add, remove...)
+					ops := make([]map[string]any, 0, len(add)+len(remove))
+					ops = append(ops, add...)
+					ops = append(ops, remove...)
 					update["labels"] = ops
 					fields["__update_labels"] = true
 				}
@@ -76,7 +78,9 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 						add = append(add, map[string]any{"add": map[string]any{"name": c}})
 					}
 				}
-				ops := append(add, remove...)
+				ops := make([]map[string]any, 0, len(add)+len(remove))
+				ops = append(ops, add...)
+				ops = append(ops, remove...)
 				fields["__update_components"] = ops
 			}
 
@@ -90,7 +94,9 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 						add = append(add, map[string]any{"add": map[string]any{"name": v}})
 					}
 				}
-				ops := append(add, remove...)
+				ops := make([]map[string]any, 0, len(add)+len(remove))
+				ops = append(ops, add...)
+				ops = append(ops, remove...)
 				fields["__update_fixVersions"] = ops
 			}
 
