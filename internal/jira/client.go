@@ -127,6 +127,22 @@ func (c *Client) UpdateIssue(key string, fields map[string]any) error {
 	return c.putNoContent(path, body)
 }
 
+// EditIssue updates an issue using both the "fields" and "update" sections
+// of the Jira edit API. Use "fields" for simple set operations (summary,
+// description, priority, custom fields) and "update" for array operations
+// (add/remove on labels, components, fixVersions).
+func (c *Client) EditIssue(key string, fields, update map[string]any) error {
+	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	body := map[string]any{}
+	if len(fields) > 0 {
+		body["fields"] = fields
+	}
+	if len(update) > 0 {
+		body["update"] = update
+	}
+	return c.putNoContent(path, body)
+}
+
 // DeleteIssue deletes an issue by key.
 func (c *Client) DeleteIssue(key string) error {
 	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
@@ -210,7 +226,23 @@ func (c *Client) TransitionIssue(key, transitionID string) error {
 // AddComment adds a comment to an issue.
 func (c *Client) AddComment(key, body string) error {
 	path := fmt.Sprintf("/rest/api/3/issue/%s/comment", key)
-	payload := map[string]any{"body": body}
+	payload := map[string]any{
+		"body": map[string]any{
+			"type":    "doc",
+			"version": 1,
+			"content": []any{
+				map[string]any{
+					"type": "paragraph",
+					"content": []any{
+						map[string]any{
+							"type": "text",
+							"text": body,
+						},
+					},
+				},
+			},
+		},
+	}
 	_, err := c.postJSON(path, payload)
 	return err
 }

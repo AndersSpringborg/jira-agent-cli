@@ -295,6 +295,105 @@ func TestErrorHandling(t *testing.T) {
 	})
 }
 
+func TestEditIssue(t *testing.T) {
+	t.Run("fields and update both sent", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "PUT", r.Method)
+			assert.Equal(t, "/rest/api/3/issue/TEST-1", r.URL.Path)
+
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+			// Verify fields section
+			fields, ok := body["fields"].(map[string]any)
+			require.True(t, ok, "expected fields section")
+			assert.Equal(t, "New title", fields["summary"])
+			assert.Equal(t, "customval", fields["customfield_10001"])
+
+			// Verify update section
+			update, ok := body["update"].(map[string]any)
+			require.True(t, ok, "expected update section")
+			labelOps, ok := update["labels"].([]any)
+			require.True(t, ok)
+			assert.Len(t, labelOps, 1)
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		fields := map[string]any{
+			"summary":           "New title",
+			"customfield_10001": "customval",
+		}
+		update := map[string]any{
+			"labels": []map[string]any{{"add": "bugfix"}},
+		}
+		err := client.EditIssue("TEST-1", fields, update)
+		assert.NoError(t, err)
+	})
+
+	t.Run("fields only when no update ops", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+			_, hasFields := body["fields"]
+			assert.True(t, hasFields)
+			_, hasUpdate := body["update"]
+			assert.False(t, hasUpdate, "update section should be absent")
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		fields := map[string]any{"summary": "New title"}
+		err := client.EditIssue("TEST-1", fields, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("update only when no fields", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+			_, hasFields := body["fields"]
+			assert.False(t, hasFields, "fields section should be absent")
+			_, hasUpdate := body["update"]
+			assert.True(t, hasUpdate)
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		update := map[string]any{
+			"labels": []map[string]any{{"remove": "old-label"}},
+		}
+		err := client.EditIssue("TEST-1", nil, update)
+		assert.NoError(t, err)
+	})
+
+	t.Run("custom fields in fields section", func(t *testing.T) {
+		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+
+			fields := body["fields"].(map[string]any)
+			assert.Equal(t, "8", fields["customfield_10001"])
+			assert.Equal(t, "Option A", fields["customfield_10002"])
+
+			w.WriteHeader(204)
+		})
+		defer server.Close()
+
+		fields := map[string]any{
+			"customfield_10001": "8",
+			"customfield_10002": "Option A",
+		}
+		err := client.EditIssue("TEST-1", fields, nil)
+		assert.NoError(t, err)
+	})
+}
+
 func TestBasicAuth(t *testing.T) {
 	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		user, pass, ok := r.BasicAuth()
