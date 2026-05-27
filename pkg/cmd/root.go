@@ -11,6 +11,7 @@ import (
 	"AndersSpringborg/jira-cli/pkg/cmd/install"
 	"AndersSpringborg/jira-cli/pkg/cmd/issue"
 	"AndersSpringborg/jira-cli/pkg/cmd/me"
+	"AndersSpringborg/jira-cli/pkg/cmd/mine"
 	"AndersSpringborg/jira-cli/pkg/cmd/open"
 	"AndersSpringborg/jira-cli/pkg/cmd/ping"
 	"AndersSpringborg/jira-cli/pkg/cmd/project"
@@ -62,6 +63,7 @@ Examples:
 	cmd.AddCommand(search.NewCmd(f))
 	cmd.AddCommand(user.NewCmd(f))
 	cmd.AddCommand(me.NewCmd(f))
+	cmd.AddCommand(mine.NewCmd(f))
 	cmd.AddCommand(open.NewCmd(f))
 	cmd.AddCommand(ping.NewCmd(f))
 	cmd.AddCommand(install.NewCmd(cmd))

@@ -88,7 +88,7 @@ func (c *Client) CreateIssue(project, summary, issueType, description, priority 
 		"issuetype": map[string]any{"name": issueType},
 	}
 	if description != "" {
-		fields["description"] = description
+		fields["description"] = textToADF(description)
 	}
 	if priority != "" {
 		fields["priority"] = map[string]any{"name": priority}
@@ -133,6 +133,9 @@ func (c *Client) UpdateIssue(key string, fields map[string]any) error {
 // (add/remove on labels, components, fixVersions).
 func (c *Client) EditIssue(key string, fields, update map[string]any) error {
 	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	if desc, ok := fields["description"].(string); ok && desc != "" {
+		fields["description"] = textToADF(desc)
+	}
 	body := map[string]any{}
 	if len(fields) > 0 {
 		body["fields"] = fields
