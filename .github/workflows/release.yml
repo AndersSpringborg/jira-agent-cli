@@ -91,13 +91,19 @@ jobs:
     needs: [release, goreleaser]
     if: needs.release.outputs.new_release == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
 
       - name: Download release archives
         env:
@@ -145,7 +151,6 @@ jobs:
 
       - name: Set versions and publish platform packages
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           for pkg in npm/jira-cli-linux-x64 npm/jira-cli-linux-arm64 npm/jira-cli-darwin-x64 npm/jira-cli-darwin-arm64 npm/jira-cli-win32-x64; do
@@ -157,7 +162,6 @@ jobs:
 
       - name: Publish meta-package
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.release.outputs.version }}
         run: |
           cd npm/jira-cli
