@@ -9,5 +9,9 @@
   "files": ["bin/jira.exe"],
   "bin": {
     "jira": "bin/jira.exe"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AndersSpringborg/jira-agent-cli.git"
   }
 }

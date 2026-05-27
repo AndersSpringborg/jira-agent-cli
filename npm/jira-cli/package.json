@@ -17,6 +17,6 @@
   "keywords": ["jira", "cli", "automation", "ai-agent"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/888aaen/jira-cli.git"
+    "url": "git+https://github.com/AndersSpringborg/jira-agent-cli.git"
   }
 }
