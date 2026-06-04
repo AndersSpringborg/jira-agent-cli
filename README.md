@@ -38,13 +38,14 @@ sudo make uninstall
 
 ## Quick Start (AI Agent)
 
-Give your AI agent Jira superpowers in one command:
+Give your AI agent Jira superpowers in two commands:
 
 ```bash
-npx skills add 888aaen/jira-cli -g -y
+npm install -g @888aaen/jira-cli
+npx skills@latest add AndersSpringborg/jira-agent-cli
 ```
 
-This installs the jira-cli [skill](https://sdk.vercel.ai/docs/ai-sdk-core/agents#primitives-for-agentic-patterns) into your agent's configuration. The skill teaches the agent how to authenticate, search, create, edit, and manage Jira issues -- no manual prompt engineering required.
+The first installs the `jira` binary. The second installs the [jira-cli skill](skills/jira-cli/SKILL.md) into `~/.claude/skills/jira-cli/` so any Claude Code agent on the machine learns how to drive it.
 
 After adding the skill, the agent will:
 1. Check for an existing Jira auth session
