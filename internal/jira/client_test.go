@@ -18,6 +18,12 @@ func newTestServer(handler http.HandlerFunc) (*httptest.Server, *jira.Client) {
 	return server, client
 }
 
+func newServerTestServer(handler http.HandlerFunc) (*httptest.Server, *jira.Client) {
+	server := httptest.NewServer(handler)
+	client, _ := jira.NewClient(server.URL, "", "test-token", "pat", 5)
+	return server, client
+}
+
 func TestNewClient(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		c, err := jira.NewClient("https://jira.example.com", "user@example.com", "token", "basic", 10)
@@ -187,6 +193,7 @@ func TestCreateIssue(t *testing.T) {
 		project := fields["project"].(map[string]any)
 		assert.Equal(t, "TEST", project["key"])
 		assert.Equal(t, "Fix bug", fields["summary"])
+		assert.IsType(t, map[string]any{}, fields["description"])
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(201)
@@ -200,6 +207,41 @@ func TestCreateIssue(t *testing.T) {
 	data, err := client.CreateIssue("TEST", "Fix bug", "Bug", "Description", "High", nil, "", nil, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "TEST-42", data["key"])
+}
+
+func TestServerClientUsesRESTAPI2AndWikiBody(t *testing.T) {
+	server, client := newServerTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/2/issue", r.URL.Path)
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "Bearer test-token", r.Header.Get("Authorization"))
+
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		fields := body["fields"].(map[string]any)
+		assert.Equal(t, "Description", fields["description"])
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(201)
+		_ = json.NewEncoder(w).Encode(map[string]any{"key": "TEST-42"})
+	})
+	defer server.Close()
+
+	data, err := client.CreateIssue("TEST", "Fix bug", "Bug", "Description", "High", nil, "", nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "TEST-42", data["key"])
+}
+
+func TestServerClientUsesLegacySearchEndpoint(t *testing.T) {
+	server, client := newServerTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/2/search", r.URL.Path)
+		assert.Equal(t, "project = TEST", r.URL.Query().Get("jql"))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"total": 0, "issues": []any{}})
+	})
+	defer server.Close()
+
+	_, err := client.Search("project = TEST", 0, 25)
+	require.NoError(t, err)
 }
 
 func TestDeleteIssue(t *testing.T) {
