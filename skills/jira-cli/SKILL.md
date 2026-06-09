@@ -12,20 +12,33 @@ Non-interactive CLI for Jira Cloud and Server. JSON by default, markdown on requ
 ## Boot sequence
 
 1. `jira auth status` - is a token present in the keychain?
-2. If missing -> walk the user through `references/auth-setup.md`.
+2. If missing -> the user logs in themselves; point them to `references/auth-setup.md`. Never handle the token yourself.
 3. `jira ping` - verifies token + connectivity against the API.
 4. `jira config show` - inspect the active profile and defaults.
 5. Pick a command from the index below.
 
+## Draft before writing (human approval required)
+
+**Never run a mutating command without showing the user the exact command and its effect, then getting their approval.** Covers `issue create`, `edit`, `delete`, `assign`, `move`, `comment add`, `link` / `unlink`, `clone`, and `sprint add` / `start` / `close`.
+
+Flow: **draft -> approve -> execute.**
+
+1. **Draft.** Show the exact command line(s) and a one-line summary of the effect.
+2. **Approve.** Wait for confirmation. If they want changes, redraft and show it again — never execute a partially-approved change.
+3. **Execute.** Run the approved command verbatim. If a key won't resolve or a field is rejected, stop and re-draft — don't improvise a different write.
+
+Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries) never mutate — run them freely, including to gather data for an accurate draft.
+
 ## Core rules
 
-1. **JSON is the default output.** Parse it directly. Use `--format markdown` only when rendering for the user.
-2. **Never invent keys.** Resolve project keys via `jira project list`, issue keys via `jira issue list` / `jira search`, account IDs via `jira user search`.
-3. **JQL values use double quotes:** `status = "In Progress"`, `project = "PROJ"`.
-4. **Set context once** to stop repeating flags: `jira context set --project PROJ --board-id 42`.
-5. **`--profile NAME`** overrides the active profile for a single command.
-6. **`jira auth status` is local-only** (keychain check). Use `jira ping` or `jira auth whoami` to confirm the token actually works.
-7. **Custom fields use raw IDs:** `--field customfield_10016=5`. Repeatable.
+1. **Draft mutating commands for approval before running them.** See [Draft before writing](#draft-before-writing-human-approval-required). Reads run freely.
+2. **JSON is the default output.** Parse it directly. Use `--format markdown` only when rendering for the user.
+3. **Never invent keys.** Resolve project keys via `jira project list`, issue keys via `jira issue list` / `jira search`, account IDs via `jira user search`.
+4. **JQL values use double quotes:** `status = "In Progress"`, `project = "PROJ"`.
+5. **Set context once** to stop repeating flags: `jira context set --project PROJ --board-id 42`.
+6. **`--profile NAME`** overrides the active profile for a single command.
+7. **`jira auth status` is local-only** (keychain check). Use `jira ping` or `jira auth whoami` to confirm the token actually works.
+8. **Custom fields use raw IDs:** `--field customfield_10016=5`. Repeatable.
 
 ## Intent -> command
 
@@ -34,26 +47,28 @@ Non-interactive CLI for Jira Cloud and Server. JSON by default, markdown on requ
 | List issues in current project    | `jira issue list`                                             |
 | List issues assigned to me        | `jira mine` (alias `my`); `--all` includes done               |
 | View an issue                     | `jira issue view PROJ-123`                                    |
-| Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-d ...] [--priority High]` |
-| Edit summary / labels / etc.      | `jira issue edit PROJ-123 -s "New summary"`                   |
+| Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-b "body"] [-y High]` |
+| Edit summary / labels / etc.      | `jira issue edit PROJ-123 -s "New summary"` (alias `update`)  |
 | Edit a custom field               | `jira issue edit PROJ-123 --field customfield_10016=5`        |
 | Delete an issue                   | `jira issue delete PROJ-123`                                  |
-| Assign to me                      | `jira issue assign PROJ-123 me`                               |
+| Assign to me                      | `jira issue assign PROJ-123 me` (`x` to unassign)             |
 | Assign to a user                  | `jira issue assign PROJ-123 <account-id>`                     |
-| Transition status                 | `jira issue move PROJ-123 "In Progress"` (case-insensitive)   |
-| Comment                           | `jira issue comment PROJ-123 -b "text"`                       |
-| Link issues                       | `jira issue link PROJ-1 PROJ-2 --type Blocks`                 |
+| Transition status                 | `jira issue move PROJ-123 "In Progress"` (alias `transition`, case-insensitive) |
+| Comment                           | `jira issue comment add PROJ-123 "text"`                      |
+| Link / unlink                     | `jira issue link PROJ-1 PROJ-2 Blocks`, `jira issue unlink PROJ-1 PROJ-2` |
 | Clone                             | `jira issue clone PROJ-123`                                   |
 | JQL search                        | `jira search jql "project = PROJ AND ..."`                    |
 | Full-text search                  | `jira search text "terms"`                                    |
-| Boards / sprints                  | `jira board list`, `jira board view 42`, `jira sprint list 42 --state active` |
-| Projects                          | `jira project list`, `jira project view PROJ`                 |
-| Users                             | `jira user search "jane"`                                     |
+| Boards                            | `jira board list`, `jira board get 42`, `jira board issues 42` |
+| Sprints                           | `jira sprint list 42 --state active`, `jira sprint get <id>`, `jira sprint issues <id>` |
+| Projects                          | `jira project list`, `jira project get PROJ`                  |
+| Users                             | `jira user search "jane"`, `jira user get <account-id>`       |
 | Current user (display name)       | `jira me` (use `--raw` for full JSON)                         |
+| My activity for a day             | `jira mine audit [--date YYYY-MM-DD]` (also `jira me audit`)   |
 | Connectivity check                | `jira ping`                                                   |
 | Open in browser                   | `jira open PROJ-123`                                          |
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
-| Context defaults                  | `jira context set --project PROJ` (also `--board-id`, `--epic`, `--labels`, `--display`) |
+| Context defaults                  | `jira context set --project PROJ` (also `--board-id`, `--epic`, `--label`, `--issue-type`, `--status`, `--assignee`, `--display`) |
 
 For anything not listed, run `jira <group> --help` - help is authoritative.
 
@@ -71,3 +86,15 @@ Persistent default: `jira context set --display markdown`. The `--format` flag a
 - **Auth not working, first-time setup, multiple Jira instances, CI/automation tokens** -> `references/auth-setup.md`
 - **Writing JQL beyond trivial queries** -> `references/jql-cookbook.md`
 - **End-to-end issue lifecycle examples** -> `references/workflows.md`
+
+## Reporting CLI problems
+
+If the `jira` CLI itself misbehaves (a crash, a wrong result, a missing flag — not a Jira data error), and `gh` is installed (`gh --version` succeeds) and authenticated, offer to file a bug. Get the user's OK first, then:
+
+```bash
+gh issue create --repo AndersSpringborg/jira-agent-cli \
+  --title "<short summary>" \
+  --body "<exact command run, expected vs actual, jira --version, OS>"
+```
+
+If `gh` is missing or not authenticated, give the user the title and body to file manually at https://github.com/AndersSpringborg/jira-agent-cli/issues. Never paste tokens or secrets into an issue.
