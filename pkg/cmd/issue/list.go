@@ -20,6 +20,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 		labels     []string
 		maxResults int
 		columns    string
+		fields     []string
 		raw        bool
 	)
 
@@ -98,7 +99,7 @@ Examples:
 				return err
 			}
 
-			data, err := client.Search(jql, 0, maxResults)
+			data, err := client.Search(jql, 0, maxResults, fields...)
 			if err != nil {
 				return err
 			}
@@ -117,6 +118,7 @@ Examples:
 			}
 
 			cols := output.NormalizeFields(columns, []string{"key", "summary", "status", "assignee", "priority"})
+			cols = output.AppendColumns(cols, fields)
 			rows := make([]map[string]any, 0, len(issues))
 			for _, item := range issues {
 				iss, ok := item.(map[string]any)
@@ -136,6 +138,9 @@ Examples:
 					row["reporter"] = flds["reporter"]
 					row["created"] = flds["created"]
 					row["updated"] = flds["updated"]
+					for _, fid := range fields {
+						row[fid] = flds[fid]
+					}
 				}
 				rows = append(rows, row)
 			}
@@ -152,6 +157,7 @@ Examples:
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Filter by label (repeatable)")
 	cmd.Flags().IntVar(&maxResults, "max", 20, "Max results")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
+	cmd.Flags().StringArrayVarP(&fields, "field", "F", nil, "Custom field ID to fetch and display (e.g. customfield_10145), repeatable")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON response")
 
 	return cmd

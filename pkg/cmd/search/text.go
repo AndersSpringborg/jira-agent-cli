@@ -15,6 +15,7 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 		project    string
 		maxResults int
 		columns    string
+		fields     []string
 		raw        bool
 	)
 
@@ -45,7 +46,7 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			data, err := client.Search(jql, 0, maxResults)
+			data, err := client.Search(jql, 0, maxResults, fields...)
 			if err != nil {
 				return err
 			}
@@ -67,6 +68,7 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			cols := output.NormalizeFields(columns, []string{"key", "summary", "status", "assignee", "priority"})
+			cols = output.AppendColumns(cols, fields)
 			rows := make([]map[string]any, 0, len(issues))
 			for _, item := range issues {
 				issue, ok := item.(map[string]any)
@@ -87,6 +89,9 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 					row["resolution"] = flds["resolution"]
 					row["created"] = flds["created"]
 					row["updated"] = flds["updated"]
+					for _, fid := range fields {
+						row[fid] = flds[fid]
+					}
 				}
 				rows = append(rows, row)
 			}
@@ -98,6 +103,7 @@ func newTextCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Filter by project key")
 	cmd.Flags().IntVar(&maxResults, "max", 50, "Max results")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
+	cmd.Flags().StringArrayVarP(&fields, "field", "F", nil, "Custom field ID to fetch and display (e.g. customfield_10145), repeatable")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON response")
 
 	return cmd

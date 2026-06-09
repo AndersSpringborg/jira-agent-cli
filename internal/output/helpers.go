@@ -2,6 +2,7 @@ package output
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -76,6 +77,18 @@ func NormalizeFields(userColumns string, defaults []string) []string {
 		return defaults
 	}
 	return result
+}
+
+// AppendColumns appends extra column names to cols, skipping any that are
+// already present. Used to surface requested custom fields as table columns
+// without duplicating user-specified ones.
+func AppendColumns(cols, extra []string) []string {
+	for _, e := range extra {
+		if !slices.Contains(cols, e) {
+			cols = append(cols, e)
+		}
+	}
+	return cols
 }
 
 // Green returns the string as-is. No ANSI colors in AI-first output.
