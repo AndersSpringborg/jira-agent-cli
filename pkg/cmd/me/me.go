@@ -2,6 +2,7 @@ package me
 
 import (
 	"AndersSpringborg/jira-cli/internal/cmdutil"
+	"AndersSpringborg/jira-cli/pkg/cmd/audit"
 
 	"github.com/spf13/cobra"
 )
@@ -35,6 +36,8 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON")
+
+	cmd.AddCommand(audit.NewCmd(f))
 
 	return cmd
 }

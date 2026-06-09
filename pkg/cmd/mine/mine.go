@@ -6,6 +6,7 @@ import (
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/output"
+	"AndersSpringborg/jira-cli/pkg/cmd/audit"
 
 	"github.com/spf13/cobra"
 )
@@ -150,6 +151,8 @@ Examples:
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON response")
 	cmd.Flags().BoolVar(&all, "all", false, "Include completed issues")
+
+	cmd.AddCommand(audit.NewCmd(f))
 
 	return cmd
 }

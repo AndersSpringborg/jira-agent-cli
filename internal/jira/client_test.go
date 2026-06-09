@@ -124,6 +124,43 @@ func TestSearch(t *testing.T) {
 	assert.Len(t, issues, 1)
 }
 
+func TestSearchWithChangelog(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/search/jql", r.URL.Path)
+		assert.Equal(t, "GET", r.Method)
+		assert.Equal(t, `issuekey IN updatedBy("abc123")`, r.URL.Query().Get("jql"))
+		assert.Equal(t, "changelog", r.URL.Query().Get("expand"))
+		assert.Equal(t, "50", r.URL.Query().Get("maxResults"))
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issues": []any{
+				map[string]any{
+					"key": "TEST-1",
+					"changelog": map[string]any{
+						"histories": []any{
+							map[string]any{
+								"created": "2026-06-08T10:00:00.000+0000",
+								"author":  map[string]any{"accountId": "abc123"},
+							},
+						},
+					},
+				},
+			},
+		})
+	})
+	defer server.Close()
+
+	data, err := client.SearchWithChangelog(`issuekey IN updatedBy("abc123")`, 50)
+	require.NoError(t, err)
+
+	issues := data["issues"].([]any)
+	require.Len(t, issues, 1)
+	iss := issues[0].(map[string]any)
+	cl := iss["changelog"].(map[string]any)
+	assert.Len(t, cl["histories"], 1)
+}
+
 func TestCreateIssue(t *testing.T) {
 	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/rest/api/3/issue", r.URL.Path)
