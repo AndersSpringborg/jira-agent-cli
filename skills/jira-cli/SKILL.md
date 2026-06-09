@@ -5,7 +5,7 @@ description: Drive Jira from the shell via the `jira` CLI - read, create, edit, 
 
 # jira-cli
 
-Non-interactive CLI for Jira Cloud. JSON by default, markdown on request, designed to be driven by an agent. (Jira Server / Data Center is not yet supported — all calls use the Cloud REST v3 API.)
+Non-interactive CLI for Jira Cloud and Jira Server/Data Center. JSON by default, markdown on request, designed to be driven by an agent. Cloud uses REST v3 + ADF; Server/Data Center uses REST v2 + wiki/plain text bodies.
 
 **Prerequisite:** the `jira` binary must be installed (`npm install -g @888aaen/jira-cli`) and authenticated. If `jira ping` fails, see `references/auth-setup.md`.
 
@@ -44,15 +44,15 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 
 | Intent                            | Command                                                       |
 |-----------------------------------|---------------------------------------------------------------|
-| List issues in current project    | `jira issue list`                                             |
+| List issues in current project    | `jira issue list` (alias `ls`)                                |
 | List issues assigned to me        | `jira mine` (alias `my`); `--all` includes done               |
-| View an issue                     | `jira issue view PROJ-123`                                    |
+| View an issue                     | `jira issue view PROJ-123` (alias `get`; supports `-F`)       |
 | Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-b "body"] [-y High]` |
 | Edit summary / labels / etc.      | `jira issue edit PROJ-123 -s "New summary"` (alias `update`)  |
 | Edit a custom field               | `jira issue edit PROJ-123 --field customfield_10016=5`        |
 | Delete an issue                   | `jira issue delete PROJ-123`                                  |
 | Assign to me                      | `jira issue assign PROJ-123 me` (`x` to unassign)             |
-| Assign to a user                  | `jira issue assign PROJ-123 <account-id>`                     |
+| Assign to a user                  | `jira issue assign PROJ-123 <account-id-or-email>`            |
 | Transition status                 | `jira issue move PROJ-123 "In Progress"` (alias `transition`, case-insensitive) |
 | Comment                           | `jira issue comment add PROJ-123 "text"`                      |
 | Link / unlink                     | `jira issue link PROJ-1 PROJ-2 Blocks`, `jira issue unlink PROJ-1 PROJ-2` |

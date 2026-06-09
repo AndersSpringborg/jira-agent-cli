@@ -504,6 +504,30 @@ func TestBasicAuth(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestTransitionIssueWithUpdates(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/issue/TEST-1/transitions", r.URL.Path)
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, map[string]any{"id": "31"}, body["transition"])
+		fields := body["fields"].(map[string]any)
+		assert.Equal(t, map[string]any{"name": "Fixed"}, fields["resolution"])
+		update := body["update"].(map[string]any)
+		assert.Contains(t, update, "comment")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(204)
+	})
+	defer server.Close()
+
+	err := client.TransitionIssueWithUpdates(
+		"TEST-1",
+		"31",
+		map[string]any{"resolution": map[string]any{"name": "Fixed"}},
+		map[string]any{"comment": []map[string]any{{"add": map[string]any{"body": client.CommentFieldValue("done")}}}},
+	)
+	require.NoError(t, err)
+}
+
 func TestAssignIssue(t *testing.T) {
 	t.Run("assign by account ID", func(t *testing.T) {
 		server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {

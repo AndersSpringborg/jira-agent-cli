@@ -59,7 +59,12 @@ func newCloneCmd(f *cmdutil.Factory) *cobra.Command {
 				return driver.Raw(data)
 			}
 
-			return driver.Message("Cloned %s to %v", issueKey, data["key"])
+			return writeMutationResult(driver, map[string]any{
+				"status": "cloned",
+				"source": issueKey,
+				"key":    data["key"],
+				"id":     data["id"],
+			})
 		},
 	}
 

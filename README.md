@@ -69,8 +69,9 @@ jira auth login --server https://your-org.atlassian.net \
 
 The token is stored in the OS keychain — never written to disk.
 
-> **Jira Cloud only (for now).** All API calls target the Cloud REST v3 API, so
-> Jira Server / Data Center instances are not yet supported. Support is planned.
+> **Jira Cloud and Server/Data Center.** Cloud profiles (`*.atlassian.net`) use
+> basic auth + REST v3 + ADF bodies. Server/Data Center profiles use PAT/bearer
+> auth + REST v2 + wiki/plain text bodies.
 
 ### 2. Verify and set defaults
 
@@ -107,7 +108,7 @@ Set a persistent default with `jira context set --display markdown`; `--format` 
 Every mutation is a single command with explicit flags, so the transcript line is exactly what changed. Write commands print the result as JSON and exit non-zero on failure, so you can chain them with `&&` and check the exit code.
 
 ```bash
-# Create (add --raw to get the new issue as JSON, e.g. to read .key)
+# Create (prints structured JSON with .key; add --raw for the full Jira response)
 jira issue create -p PROJ -s "Fix login bug" -t Bug -b "Steps to reproduce..."
 
 # Edit fields, including custom fields by id (-F is repeatable)
@@ -117,8 +118,8 @@ jira issue edit PROJ-123 -s "New summary" -l backend -F customfield_10145="value
 jira issue move PROJ-123 "In Progress"
 jira issue move PROJ-123 Done --resolution Fixed --comment "Shipped in v1.2"
 
-# Assign and comment ('me' for yourself, 'x' to unassign; otherwise an account ID
-# from `jira user search`)
+# Assign and comment ('me' for yourself, 'x' to unassign; otherwise pass an account ID,
+# username, or email resolvable by `jira user search`)
 jira issue assign PROJ-123 me
 jira issue comment add PROJ-123 "Investigated -- root cause was a stale cache."
 
@@ -134,7 +135,7 @@ jira sprint add 42 PROJ-123 PROJ-456
 Capture a created key and act on it in the same script:
 
 ```bash
-key=$(jira issue create -p PROJ -s "Automated task" -t Task --raw | jq -r '.key')
+key=$(jira issue create -p PROJ -s "Automated task" -t Task | jq -r '.key')
 jira issue move "$key" "In Progress" && jira issue assign "$key" me
 ```
 
@@ -206,7 +207,7 @@ jira issue view CER-1 --raw | rg -o '"customfield_\d+"'
 ```
 
 ### Non-mutating discovery and field projection
-Read paths (`search jql`, `search text`, `issue list`, `mine`, `issue view`) are non-mutating and return consistent, keyed JSON (`key`, `fields.*`). Custom-field projection keeps responses small so an agent retrieves only what it needs: `search`, `list`, and `mine` take repeatable `--field`/`-F` flags; `issue view` takes a comma-separated `--fields`.
+Read paths (`search jql`, `search text`, `issue list`, `mine`, `issue view`) are non-mutating and return consistent, keyed JSON (`key`, `fields.*`). Custom-field projection keeps responses small so an agent retrieves only what it needs via repeatable `--field`/`-F` flags; `issue view` also keeps `--fields` as a comma-separated alias.
 
 ### CLI over MCP
 Rather than running a Model Context Protocol server, this is a standard binary: no long-lived daemon, no open socket, no persistent state between executions. Every action is the exact execution string, so debugging is just re-running the command from shell history, and agents reuse shell operators (`&&`, `||`, `|`, `>`) instead of learning a custom RPC protocol.

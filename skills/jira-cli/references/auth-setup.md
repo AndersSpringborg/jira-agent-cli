@@ -4,7 +4,7 @@
 
 The auth type is auto-detected from the base URL: `*.atlassian.net` -> `basic` (email + API token), anything else -> `pat` (Personal Access Token). Tokens live in the OS keychain - never on disk.
 
-> **Jira Cloud only (for now).** All API calls target the Cloud REST v3 API, so Jira Server / Data Center is not yet functional even though PAT login is accepted. Support is planned. Use a Cloud (`*.atlassian.net`) instance.
+Cloud profiles use REST v3 + ADF bodies. Jira Server / Data Center profiles use REST v2 + wiki/plain text bodies.
 
 ## Jira Cloud (`*.atlassian.net`)
 
@@ -19,11 +19,7 @@ jira auth login \
   --token API_TOKEN
 ```
 
-## Jira Server / Data Center (PAT) — not yet supported
-
-PAT login is accepted, but API calls currently target the Cloud v3 endpoints, so
-requests against a Server / Data Center instance will fail. Documented here for when
-support lands.
+## Jira Server / Data Center (PAT)
 
 1. User creates a Personal Access Token under Profile -> Personal Access Tokens.
 2. Initialize and log in:

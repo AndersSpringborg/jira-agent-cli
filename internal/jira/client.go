@@ -214,9 +214,30 @@ func (c *Client) GetIssueTransitions(key string) ([]map[string]any, error) {
 
 // TransitionIssue moves an issue to a new status via transition ID.
 func (c *Client) TransitionIssue(key, transitionID string) error {
+	return c.TransitionIssueWithUpdates(key, transitionID, nil, nil)
+}
+
+// CommentFieldValue formats a comment body for the selected Jira API strategy.
+func (c *Client) CommentFieldValue(body string) any {
+	return c.strategy.CommentBody(body)
+}
+
+// AssigneeFieldValue formats an assignee field for the selected Jira API strategy.
+func (c *Client) AssigneeFieldValue(accountID, name string) map[string]any {
+	return c.strategy.AssigneeField(accountID, name)
+}
+
+// TransitionIssueWithUpdates moves an issue and optionally sets fields/update operations.
+func (c *Client) TransitionIssueWithUpdates(key, transitionID string, fields, update map[string]any) error {
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/transitions", key))
 	body := map[string]any{
 		"transition": map[string]any{"id": transitionID},
+	}
+	if len(fields) > 0 {
+		body["fields"] = fields
+	}
+	if len(update) > 0 {
+		body["update"] = update
 	}
 	_, err := c.postJSON(path, body)
 	return err

@@ -11,6 +11,7 @@ type Strategy interface {
 	TextBody(text string) any
 	CommentBody(text string) any
 	AssignBody(accountID, name string) map[string]any
+	AssigneeField(accountID, name string) map[string]any
 	UserSearchPath(query string) string
 	UserPath(accountID string) string
 }
@@ -32,6 +33,12 @@ func (cloudStrategy) AssignBody(accountID, name string) map[string]any {
 		body["accountId"] = nil
 	}
 	return body
+}
+func (cloudStrategy) AssigneeField(accountID, name string) map[string]any {
+	if accountID != "" {
+		return map[string]any{"accountId": accountID}
+	}
+	return map[string]any{"accountId": name}
 }
 func (cloudStrategy) UserSearchPath(query string) string {
 	return fmt.Sprintf("/rest/api/3/user/search?query=%s", urlEncode(query))
@@ -57,6 +64,12 @@ func (serverStrategy) AssignBody(accountID, name string) map[string]any {
 		body["name"] = nil
 	}
 	return body
+}
+func (serverStrategy) AssigneeField(accountID, name string) map[string]any {
+	if name != "" {
+		return map[string]any{"name": name}
+	}
+	return map[string]any{"name": accountID}
 }
 func (serverStrategy) UserSearchPath(query string) string {
 	return fmt.Sprintf("/rest/api/2/user/search?username=%s", urlEncode(query))

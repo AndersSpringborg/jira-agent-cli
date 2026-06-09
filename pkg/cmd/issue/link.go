@@ -28,7 +28,12 @@ func newLinkCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			driver := f.DisplayDriver(cmd)
-			return driver.Message("Linked %s %s %s", issue1, linkType, issue2)
+			return writeMutationResult(driver, map[string]any{
+				"status":       "linked",
+				"inwardIssue":  issue1,
+				"outwardIssue": issue2,
+				"type":         linkType,
+			})
 		},
 	}
 

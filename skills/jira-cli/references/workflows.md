@@ -5,15 +5,14 @@ The mutating steps below (create, assign, edit, move, comment, clone, bulk trans
 ## Full issue lifecycle
 
 ```bash
-# 1. Create (--raw prints the JSON payload incl. .key; default prints a message)
+# 1. Create (default output includes .key; --raw prints the full Jira response)
 jira issue create \
   -p PROJ \
   -s "Fix login timeout" \
   -t Bug \
   -b "Users see timeout after 30s" \
-  -y High \
-  --raw
-# -> { "key": "PROJ-456", ... }
+  -y High
+# -> { "status": "created", "key": "PROJ-456", ... }
 
 # 2. Assign to me
 jira issue assign PROJ-456 me

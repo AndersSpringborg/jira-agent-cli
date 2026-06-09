@@ -19,7 +19,6 @@ func newEditCmd(f *cmdutil.Factory) *cobra.Command {
 		components   []string
 		fixVersions  []string
 		customFields []string
-		noInput      bool
 	)
 
 	cmd := &cobra.Command{
@@ -101,7 +100,10 @@ with a - prefix: --label bugfix --label -wontfix`,
 			}
 
 			driver := f.DisplayDriver(cmd)
-			return driver.Message("Updated issue: %s", issueKey)
+			return writeMutationResult(driver, map[string]any{
+				"status": "updated",
+				"key":    issueKey,
+			})
 		},
 	}
 
@@ -112,8 +114,6 @@ with a - prefix: --label bugfix --label -wontfix`,
 	cmd.Flags().StringSliceVarP(&components, "component", "C", nil, "Component (prefix - to remove, repeatable)")
 	cmd.Flags().StringSliceVar(&fixVersions, "fix-version", nil, "Fix version (prefix - to remove, repeatable)")
 	cmd.Flags().StringArrayVarP(&customFields, "field", "F", nil, `Custom field as key=value (e.g. customfield_10001=5), repeatable`)
-	cmd.Flags().BoolVar(&noInput, "no-input", false, "Disable interactive prompt")
-	_ = noInput
 
 	return cmd
 }
