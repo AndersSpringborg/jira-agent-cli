@@ -124,6 +124,21 @@ func TestSearch(t *testing.T) {
 	assert.Len(t, issues, 1)
 }
 
+func TestSearchIncludesCustomFields(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		fields := r.URL.Query().Get("fields")
+		assert.Contains(t, fields, "summary")
+		assert.Contains(t, fields, "customfield_10145")
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"total": 0, "issues": []any{}})
+	})
+	defer server.Close()
+
+	_, err := client.Search("project = TEST", 0, 25, "customfield_10145")
+	require.NoError(t, err)
+}
+
 func TestSearchWithChangelog(t *testing.T) {
 	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/rest/api/3/search/jql", r.URL.Path)

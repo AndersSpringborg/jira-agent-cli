@@ -284,10 +284,13 @@ func (c *Client) DeleteIssueLink(linkID string) error {
 
 // Search executes a JQL search query using the /rest/api/3/search/jql endpoint.
 // Requests key and common fields by default so results are useful.
-func (c *Client) Search(jql string, startAt, maxResults int) (map[string]any, error) {
+func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...string) (map[string]any, error) {
+	fields := "key,summary,status,assignee,priority,issuetype,reporter,resolution,created,updated,labels,description,comment"
+	if len(extraFields) > 0 {
+		fields += "," + strings.Join(extraFields, ",")
+	}
 	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&startAt=%d&maxResults=%d&fields=%s",
-		urlEncode(jql), startAt, maxResults,
-		"key,summary,status,assignee,priority,issuetype,reporter,resolution,created,updated,labels,description,comment")
+		urlEncode(jql), startAt, maxResults, fields)
 	return c.getJSON(path)
 }
 
