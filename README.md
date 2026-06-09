@@ -15,11 +15,11 @@ jira search jql "assignee = currentUser() AND status != Done" | jq -r '.[].key'
 - **No daemon, no custom protocol.** It's a plain binary. Every action is one replayable command line — debug by copying it from your shell history and running it again.
 - **Server-side audit.** `jira me audit --date YYYY-MM-DD` reconstructs what actually changed on a given day from Jira's own changelog, independent of local state.
 
-See [Design notes](#design-notes) for the longer rationale.
+See [What makes this an agent CLI](#what-makes-this-an-agent-cli) for the longer rationale.
 
 ## Why not the existing jira-cli?
 
-This project is00 inspired by [ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli) — a feature-rich **interactive** Jira command line with a full TUI (tables, keyboard navigation, prompts). Think of it as the [k9s](https://k9scli.io/) of Jira: visual and built for humans at a terminal.
+This project is inspired by [ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli) — a feature-rich **interactive** Jira command line with a full TUI (tables, keyboard navigation, prompts). Think of it as the [k9s](https://k9scli.io/) of Jira: visual and built for humans at a terminal.
 
 This takes the opposite approach — the **kubectl** of Jira: non-interactive, scriptable, and built for agents and automation. No TUI, no prompts, just structured output machines can parse. Want a great interactive experience? Use that one. Want to wire Jira into an AI agent, CI pipeline, or shell script? Use this.
 
@@ -60,20 +60,17 @@ The first installs the `jira` binary. The second installs the [jira-cli skill](s
 
 ### 1. Authenticate
 
-**Jira Cloud** (`*.atlassian.net`) — create an API token at https://id.atlassian.com/manage-profile/security/api-tokens, then:
+Create an API token at https://id.atlassian.com/manage-profile/security/api-tokens, then:
 
 ```bash
 jira auth login --server https://your-org.atlassian.net \
   --email you@example.com --token YOUR_API_TOKEN
 ```
 
-**Jira Server / Data Center** — use a Personal Access Token (Profile > Personal Access Tokens):
-
-```bash
-jira auth login --server https://jira.example.com --token YOUR_PAT
-```
-
 The token is stored in the OS keychain — never written to disk.
+
+> **Jira Cloud only (for now).** All API calls target the Cloud REST v3 API, so
+> Jira Server / Data Center instances are not yet supported. Support is planned.
 
 ### 2. Verify and set defaults
 
@@ -110,7 +107,7 @@ Set a persistent default with `jira context set --display markdown`; `--format` 
 Every mutation is a single command with explicit flags, so the transcript line is exactly what changed. Write commands print the result as JSON and exit non-zero on failure, so you can chain them with `&&` and check the exit code.
 
 ```bash
-# Create (returns the new key on stdout)
+# Create (add --raw to get the new issue as JSON, e.g. to read .key)
 jira issue create -p PROJ -s "Fix login bug" -t Bug -b "Steps to reproduce..."
 
 # Edit fields, including custom fields by id (-F is repeatable)
@@ -120,8 +117,9 @@ jira issue edit PROJ-123 -s "New summary" -l backend -F customfield_10145="value
 jira issue move PROJ-123 "In Progress"
 jira issue move PROJ-123 Done --resolution Fixed --comment "Shipped in v1.2"
 
-# Assign and comment ('me' for yourself, 'x' to unassign)
-jira issue assign PROJ-123 alice@example.com
+# Assign and comment ('me' for yourself, 'x' to unassign; otherwise an account ID
+# from `jira user search`)
+jira issue assign PROJ-123 me
 jira issue comment add PROJ-123 "Investigated -- root cause was a stale cache."
 
 # Link, clone, delete
@@ -190,7 +188,7 @@ These override config file values and are useful in CI/automation:
 | `JIRA_AUTH_TYPE`  | Auth type: `basic` or `pat`       |
 | `JIRABOT_PROFILE` | Profile name to use               |
 
-## What makes this a agent CLI
+## What makes this an agent CLI
 
 ### Out-of-band authentication
 Authentication and execution are decoupled. A human or CI process runs `jira auth login` once; the token is stored in the OS keychain, never on disk. An agent never sees, requests, or routes the credential — it inherits an already-authenticated environment, and access is revoked system-side without any model trust.
@@ -208,7 +206,7 @@ jira issue view CER-1 --raw | rg -o '"customfield_\d+"'
 ```
 
 ### Non-mutating discovery and field projection
-Read paths (`search jql`, `search text`, `issue view`) are non-mutating and return consistent, keyed JSON (`key`, `fields.*`). Repeatable `--field`/`-F` flags project exact custom fields into any read path, so an agent retrieves only what it needs and minimizes token overhead.
+Read paths (`search jql`, `search text`, `issue list`, `mine`, `issue view`) are non-mutating and return consistent, keyed JSON (`key`, `fields.*`). Custom-field projection keeps responses small so an agent retrieves only what it needs: `search`, `list`, and `mine` take repeatable `--field`/`-F` flags; `issue view` takes a comma-separated `--fields`.
 
 ### CLI over MCP
 Rather than running a Model Context Protocol server, this is a standard binary: no long-lived daemon, no open socket, no persistent state between executions. Every action is the exact execution string, so debugging is just re-running the command from shell history, and agents reuse shell operators (`&&`, `||`, `|`, `>`) instead of learning a custom RPC protocol.

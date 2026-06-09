@@ -5,7 +5,7 @@ description: Drive Jira from the shell via the `jira` CLI - read, create, edit, 
 
 # jira-cli
 
-Non-interactive CLI for Jira Cloud and Server. JSON by default, markdown on request, designed to be driven by an agent.
+Non-interactive CLI for Jira Cloud. JSON by default, markdown on request, designed to be driven by an agent. (Jira Server / Data Center is not yet supported — all calls use the Cloud REST v3 API.)
 
 **Prerequisite:** the `jira` binary must be installed (`npm install -g @888aaen/jira-cli`) and authenticated. If `jira ping` fails, see `references/auth-setup.md`.
 
