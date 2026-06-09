@@ -8,6 +8,52 @@ This project is inspired by [ankitpokhrel/jira-cli](https://github.com/ankitpokh
 
 This project takes a different approach. It is the **kubectl** of Jira: non-interactive, scriptable, and designed for AI agents. No TUI, no prompts -- just structured output that machines can parse. If you want a great interactive experience, use [ankitpokhrel/jira-cli](https://github.com/ankitpokhrel/jira-cli). If you want to wire Jira into an AI agent, CI pipeline, or shell script, use this.
 
+## What makes this an "Agent CLI"
+
+### 1. Out-of-band Authentication
+Authentication and execution are strictly decoupled.
+* **Mechanism:** A human or CI process runs `jira auth login` once. The token is stored securely in the **OS keychain, never to disk**.
+* **Security Guarantee:** The LLM agent never sees, requests, handles, or routes credential strings. It inherits an already-authenticated environment. Access is revoked system-side, requiring no model trust.
+
+### 2. Inspectable State & Blast Radius Controls
+State is managed via disk, not LLM context windows.
+* **Scope:** `jira context set --project PROJ --board-id 42` establishes local default parameters.
+* **Blast Radius:** This restricts the agent's default operating scope without requiring the LLM to continuously append `--project` to every call.
+* **Overrides:** The context is explicit, inspectable state. If the agent needs to break scope, it must do so explicitly via per-command overrides (e.g., `--profile`).
+
+### 3. Unix Pipe Compliance (JSON by Default)
+The CLI relies on standard shell utilities (`jq`, `rg`, `grep`, `wc`) rather than building a bespoke internal processing engine or requiring SDKs.
+* **Strict Stream Separation:** `stdout` emits **only** machine-readable JSON. All diagnostics, warnings, and errors are routed to `stderr`. This guarantees pipeline tools like `jq` will not choke on error blobs.
+* **Reliable Exit Codes:** Failed API calls or validations result in a non-zero exit code. Agents detect success/failure via the `$?` status code natively, avoiding the need to parse output strings to determine operation state.
+
+```bash
+# Extract issue keys natively
+jira search jql "assignee = currentUser()" | jq -r '.[].key'            
+
+# Filter and aggregate
+jira issue list | jq '[.[] | select(.status.name=="Done")] | length'    
+
+# Inspect schemas
+jira issue view CER-1 --raw | rg -o '"customfield_\d+"'                 
+```
+*(Note: `--format markdown` is supported solely for human-readable summaries, but is not the default path).*
+
+### 4. Idempotent Discovery & Field Projection
+Read paths are explicitly non-mutating and structured for fanning out searches.
+* **Stable Schemas:** Operations like `search jql`, `search text`, and `issue view` return consistent, keyed JSON objects (`key`, `fields.*`).
+* **Targeted Retrieval:** Agents can project exact custom fields into any read path via repeatable flags (`--field customfield_x` or `-F`). This ensures the agent retrieves only the data necessary for its reasoning loop, minimizing token overhead.
+
+### 5. CLI over MCP (Stateless vs. Stateful)
+Instead of implementing a Model Context Protocol (MCP) server, this tool utilizes a standard CLI binary.
+* **Zero Standing Surface:** There is no long-lived daemon, no open socket, and no persistent state between executions.
+* **Direct Replayability:** The interface is the exact execution string. To debug an agent, a human simply copies the exact command from the shell history and executes it.
+* **Native Composability:** Agents already understand shell operators (`&&`, `||`, `|`, `>`). A CLI leverages existing agent capabilities instead of requiring the LLM to learn a custom RPC protocol.
+
+### 6. Dual-Layer Auditing
+Verification relies on hard records, not LLM transcripts.
+* **Local Audit (Execution):** The shell history acts as the immutable log of *what was attempted*. The inputs are explicit command-line arguments.
+* **Remote Audit (Mutation):** `jira me audit` (or `jira mine audit --date YYYY-MM-DD`) queries Jira's server-side changelogs. It reconstructs exactly *what mutated* on a given day based on the authenticated user's activity. This provides an independent, cryptographic-equivalent verification of the agent's actual impact, regardless of local terminal state.
+
 ## Install
 
 ### npm (recommended)
@@ -131,6 +177,43 @@ jira context set --display markdown
 ```
 
 The `--format` flag always takes precedence over the context default.
+
+## Writing to Jira
+
+Reads are only half the job -- an agent has to *act*. Every mutation is a single command with explicit flags, so the line in the transcript is exactly what changed (see [Why a CLI instead of an MCP server](#5-why-a-cli-instead-of-an-mcp-server)). Like the read paths, write commands print the result as JSON and exit non-zero on failure, so an agent can chain them with `&&` and check success from the exit code.
+
+```bash
+# Create an issue (returns the new key on stdout)
+jira issue create -p PROJ -s "Fix login bug" -t Bug -b "Steps to reproduce..."
+
+# Edit fields, including custom fields by id (-F is repeatable)
+jira issue edit PROJ-123 -s "New summary" -l backend -F customfield_10145="value"
+
+# Transition through the workflow
+jira issue move PROJ-123 "In Progress"
+jira issue move PROJ-123 Done --resolution Fixed --comment "Shipped in v1.2"
+
+# Assign and comment ('me' for yourself, 'x' to unassign)
+jira issue assign PROJ-123 alice@example.com
+jira issue comment add PROJ-123 "Investigated -- root cause was a stale cache."
+
+# Link, clone, delete
+jira issue link PROJ-123 PROJ-456 "blocks"
+jira issue clone PROJ-123 -s "Follow-up: ..."
+jira issue delete PROJ-123
+
+# Sprint management
+jira sprint add 42 PROJ-123 PROJ-456
+```
+
+Capture a created key and act on it in the same script:
+
+```bash
+key=$(jira issue create -p PROJ -s "Automated task" -t Task --raw | jq -r '.key')
+jira issue move "$key" "In Progress" && jira issue assign "$key" me
+```
+
+Run `jira issue <verb> --help` for the full flag set on any write command.
 
 ## Commands
 
