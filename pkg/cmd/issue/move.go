@@ -70,15 +70,29 @@ func newMoveCmd(f *cmdutil.Factory) *cobra.Command {
 				return fmt.Errorf("invalid transition: %s", targetState)
 			}
 
-			if err := client.TransitionIssue(issueKey, transitionID); err != nil {
+			fields := map[string]any{}
+			update := map[string]any{}
+			if resolution != "" {
+				fields["resolution"] = map[string]any{"name": resolution}
+			}
+			if assignee != "" {
+				accountID, name := resolveAssignmentUser(client, assignee)
+				fields["assignee"] = client.AssigneeFieldValue(accountID, name)
+			}
+			if comment != "" {
+				update["comment"] = []map[string]any{{"add": map[string]any{"body": client.CommentFieldValue(comment)}}}
+			}
+
+			if err := client.TransitionIssueWithUpdates(issueKey, transitionID, fields, update); err != nil {
 				return err
 			}
 
-			_ = comment
-			_ = resolution
-			_ = assignee
-
-			return driver.Message("Transitioned %s to %s", issueKey, targetState)
+			return writeMutationResult(driver, map[string]any{
+				"status":       "transitioned",
+				"key":          issueKey,
+				"transition":   targetState,
+				"transitionId": transitionID,
+			})
 		},
 	}
 

@@ -9,6 +9,40 @@ import (
 	"github.com/spf13/cobra"
 )
 
+type userSearcher interface {
+	ListUsers(query string) ([]map[string]any, error)
+}
+
+func resolveAssignmentUser(client userSearcher, user string) (accountID, name string) {
+	users, err := client.ListUsers(user)
+	if err != nil || len(users) == 0 {
+		return user, user
+	}
+
+	selected := users[0]
+	for _, candidate := range users {
+		if strings.EqualFold(stringField(candidate, "emailAddress"), user) || strings.EqualFold(stringField(candidate, "name"), user) {
+			selected = candidate
+			break
+		}
+	}
+
+	accountID = stringField(selected, "accountId")
+	name = stringField(selected, "name")
+	if accountID == "" {
+		accountID = user
+	}
+	if name == "" {
+		name = user
+	}
+	return accountID, name
+}
+
+func stringField(m map[string]any, key string) string {
+	v, _ := m[key].(string)
+	return v
+}
+
 func newAssignCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "assign <issue-key> <user>",
@@ -36,13 +70,19 @@ func newAssignCmd(f *cmdutil.Factory) *cobra.Command {
 				if err := client.AssignIssue(issueKey, "", "", ""); err != nil {
 					return err
 				}
-				return driver.Message("Unassigned issue: %s", issueKey)
+				return writeMutationResult(driver, map[string]any{
+					"status": "unassigned",
+					"key":    issueKey,
+				})
 
 			case "default":
 				if err := client.AssignIssue(issueKey, "-1", "", ""); err != nil {
 					return err
 				}
-				return driver.Message("Assigned issue %s to default assignee", issueKey)
+				return writeMutationResult(driver, map[string]any{
+					"status": "assigned_default",
+					"key":    issueKey,
+				})
 
 			case "me":
 				data, err := client.GetMyself()
@@ -60,13 +100,24 @@ func newAssignCmd(f *cmdutil.Factory) *cobra.Command {
 				if displayName == "" {
 					displayName = accountID
 				}
-				return driver.Message("Assigned issue %s to %s (me)", issueKey, displayName)
+				return writeMutationResult(driver, map[string]any{
+					"status":       "assigned",
+					"key":          issueKey,
+					"user":         displayName,
+					"accountId":    accountID,
+					"current_user": true,
+				})
 
 			default:
-				if err := client.AssignIssue(issueKey, user, user, ""); err != nil {
+				accountID, name := resolveAssignmentUser(client, user)
+				if err := client.AssignIssue(issueKey, accountID, name, ""); err != nil {
 					return err
 				}
-				return driver.Message("Assigned issue %s to %s", issueKey, user)
+				return writeMutationResult(driver, map[string]any{
+					"status": "assigned",
+					"key":    issueKey,
+					"user":   user,
+				})
 			}
 		},
 	}

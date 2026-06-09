@@ -29,6 +29,7 @@ type Client struct {
 	email      string
 	token      string
 	authType   string // "basic" or "pat"/"bearer"
+	strategy   Strategy
 }
 
 // NewClient creates a new Jira client.
@@ -54,6 +55,7 @@ func NewClient(baseURL, email, token, authType string, timeout float64) (*Client
 		email:    email,
 		token:    token,
 		authType: authType,
+		strategy: selectStrategy(baseURL, authType),
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   time.Duration(timeout) * time.Second,
@@ -65,7 +67,7 @@ func NewClient(baseURL, email, token, authType string, timeout float64) (*Client
 
 // GetMyself returns the currently authenticated user.
 func (c *Client) GetMyself() (map[string]any, error) {
-	return c.getJSON("/rest/api/3/myself")
+	return c.getJSON(c.strategy.APIPath("myself"))
 }
 
 // --- Issues ---
@@ -73,7 +75,7 @@ func (c *Client) GetMyself() (map[string]any, error) {
 // GetIssue fetches a single issue by key.
 // fields optionally limits which fields are returned.
 func (c *Client) GetIssue(key string, fields []string) (map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	if len(fields) > 0 {
 		path += "?fields=" + strings.Join(fields, ",")
 	}
@@ -88,7 +90,7 @@ func (c *Client) CreateIssue(project, summary, issueType, description, priority 
 		"issuetype": map[string]any{"name": issueType},
 	}
 	if description != "" {
-		fields["description"] = textToADF(description)
+		fields["description"] = c.strategy.TextBody(description)
 	}
 	if priority != "" {
 		fields["priority"] = map[string]any{"name": priority}
@@ -117,12 +119,15 @@ func (c *Client) CreateIssue(project, summary, issueType, description, priority 
 	body := map[string]any{
 		"fields": fields,
 	}
-	return c.postJSON("/rest/api/3/issue", body)
+	return c.postJSON(c.strategy.APIPath("issue"), body)
 }
 
 // UpdateIssue updates an existing issue's fields.
 func (c *Client) UpdateIssue(key string, fields map[string]any) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
+	if desc, ok := fields["description"].(string); ok && desc != "" {
+		fields["description"] = c.strategy.TextBody(desc)
+	}
 	body := map[string]any{"fields": fields}
 	return c.putNoContent(path, body)
 }
@@ -132,9 +137,9 @@ func (c *Client) UpdateIssue(key string, fields map[string]any) error {
 // description, priority, custom fields) and "update" for array operations
 // (add/remove on labels, components, fixVersions).
 func (c *Client) EditIssue(key string, fields, update map[string]any) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	if desc, ok := fields["description"].(string); ok && desc != "" {
-		fields["description"] = textToADF(desc)
+		fields["description"] = c.strategy.TextBody(desc)
 	}
 	body := map[string]any{}
 	if len(fields) > 0 {
@@ -148,7 +153,7 @@ func (c *Client) EditIssue(key string, fields, update map[string]any) error {
 
 // DeleteIssue deletes an issue by key.
 func (c *Client) DeleteIssue(key string) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	return c.delete(path)
 }
 
@@ -187,28 +192,19 @@ func (c *Client) CloneIssue(key string, overrides map[string]any) (map[string]an
 	}
 
 	body := map[string]any{"fields": newFields}
-	return c.postJSON("/rest/api/3/issue", body)
+	return c.postJSON(c.strategy.APIPath("issue"), body)
 }
 
 // AssignIssue assigns an issue to a user.
 // Pass accountID for cloud, name for server. Pass empty strings for unassigned.
 func (c *Client) AssignIssue(key, accountID, name, _ string) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s/assignee", key)
-	body := map[string]any{}
-	switch {
-	case accountID != "":
-		body["accountId"] = accountID
-	case name != "":
-		body["name"] = name
-	default:
-		body["accountId"] = nil
-	}
-	return c.putNoContent(path, body)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/assignee", key))
+	return c.putNoContent(path, c.strategy.AssignBody(accountID, name))
 }
 
 // GetIssueTransitions returns available transitions for an issue.
 func (c *Client) GetIssueTransitions(key string) ([]map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/issue/%s/transitions", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/transitions", key))
 	data, err := c.getJSON(path)
 	if err != nil {
 		return nil, err
@@ -218,9 +214,30 @@ func (c *Client) GetIssueTransitions(key string) ([]map[string]any, error) {
 
 // TransitionIssue moves an issue to a new status via transition ID.
 func (c *Client) TransitionIssue(key, transitionID string) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s/transitions", key)
+	return c.TransitionIssueWithUpdates(key, transitionID, nil, nil)
+}
+
+// CommentFieldValue formats a comment body for the selected Jira API strategy.
+func (c *Client) CommentFieldValue(body string) any {
+	return c.strategy.CommentBody(body)
+}
+
+// AssigneeFieldValue formats an assignee field for the selected Jira API strategy.
+func (c *Client) AssigneeFieldValue(accountID, name string) map[string]any {
+	return c.strategy.AssigneeField(accountID, name)
+}
+
+// TransitionIssueWithUpdates moves an issue and optionally sets fields/update operations.
+func (c *Client) TransitionIssueWithUpdates(key, transitionID string, fields, update map[string]any) error {
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/transitions", key))
 	body := map[string]any{
 		"transition": map[string]any{"id": transitionID},
+	}
+	if len(fields) > 0 {
+		body["fields"] = fields
+	}
+	if len(update) > 0 {
+		body["update"] = update
 	}
 	_, err := c.postJSON(path, body)
 	return err
@@ -228,23 +245,9 @@ func (c *Client) TransitionIssue(key, transitionID string) error {
 
 // AddComment adds a comment to an issue.
 func (c *Client) AddComment(key, body string) error {
-	path := fmt.Sprintf("/rest/api/3/issue/%s/comment", key)
+	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/comment", key))
 	payload := map[string]any{
-		"body": map[string]any{
-			"type":    "doc",
-			"version": 1,
-			"content": []any{
-				map[string]any{
-					"type": "paragraph",
-					"content": []any{
-						map[string]any{
-							"type": "text",
-							"text": body,
-						},
-					},
-				},
-			},
-		},
+		"body": c.strategy.CommentBody(body),
 	}
 	_, err := c.postJSON(path, payload)
 	return err
@@ -257,7 +260,7 @@ func (c *Client) LinkIssues(inward, outward, linkType string) error {
 		"outwardIssue": map[string]any{"key": outward},
 		"type":         map[string]any{"name": linkType},
 	}
-	_, err := c.postJSON("/rest/api/3/issueLink", body)
+	_, err := c.postJSON(c.strategy.APIPath("issueLink"), body)
 	return err
 }
 
@@ -276,21 +279,21 @@ func (c *Client) GetIssueLinks(key string) ([]map[string]any, error) {
 
 // DeleteIssueLink deletes an issue link by ID.
 func (c *Client) DeleteIssueLink(linkID string) error {
-	path := fmt.Sprintf("/rest/api/3/issueLink/%s", linkID)
+	path := c.strategy.APIPath(fmt.Sprintf("issueLink/%s", linkID))
 	return c.delete(path)
 }
 
 // --- Search ---
 
-// Search executes a JQL search query using the /rest/api/3/search/jql endpoint.
+// Search executes a JQL search query using the selected Jira REST API strategy.
 // Requests key and common fields by default so results are useful.
 func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...string) (map[string]any, error) {
 	fields := "key,summary,status,assignee,priority,issuetype,reporter,resolution,created,updated,labels,description,comment"
 	if len(extraFields) > 0 {
 		fields += "," + strings.Join(extraFields, ",")
 	}
-	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&startAt=%d&maxResults=%d&fields=%s",
-		urlEncode(jql), startAt, maxResults, fields)
+	path := fmt.Sprintf("%s?jql=%s&startAt=%d&maxResults=%d&fields=%s",
+		c.strategy.SearchPath(), urlEncode(jql), startAt, maxResults, fields)
 	return c.getJSON(path)
 }
 
@@ -298,8 +301,8 @@ func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...stri
 // changelog, so callers can inspect change history. Used by `me audit` to
 // reconstruct a user's activity from issue history.
 func (c *Client) SearchWithChangelog(jql string, maxResults int) (map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&maxResults=%d&fields=%s&expand=changelog",
-		urlEncode(jql), maxResults,
+	path := fmt.Sprintf("%s?jql=%s&maxResults=%d&fields=%s&expand=changelog",
+		c.strategy.SearchPath(), urlEncode(jql), maxResults,
 		"key,summary,status,issuetype,created,updated")
 	return c.getJSON(path)
 }
@@ -391,12 +394,12 @@ func (c *Client) MoveIssuesToSprint(sprintID int, issueKeys []string) error {
 
 // ListProjects returns all accessible projects.
 func (c *Client) ListProjects() ([]map[string]any, error) {
-	return c.getJSONArray("/rest/api/3/project")
+	return c.getJSONArray(c.strategy.APIPath("project"))
 }
 
 // GetProject fetches a single project by key.
 func (c *Client) GetProject(projectKey string) (map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/project/%s", projectKey)
+	path := c.strategy.APIPath(fmt.Sprintf("project/%s", projectKey))
 	return c.getJSON(path)
 }
 
@@ -404,13 +407,13 @@ func (c *Client) GetProject(projectKey string) (map[string]any, error) {
 
 // ListUsers searches for users by query string.
 func (c *Client) ListUsers(query string) ([]map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/user/search?query=%s", query)
+	path := c.strategy.UserSearchPath(query)
 	return c.getJSONArray(path)
 }
 
 // GetUser fetches a user by account ID.
 func (c *Client) GetUser(accountID string) (map[string]any, error) {
-	path := fmt.Sprintf("/rest/api/3/user?accountId=%s", accountID)
+	path := c.strategy.UserPath(accountID)
 	return c.getJSON(path)
 }
 

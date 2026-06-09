@@ -1,6 +1,10 @@
 # Authentication & profiles
 
+**The user authenticates themselves — the agent never handles the token.** Give the user the commands to run and let them run them (in Claude Code they can run a line inline with `! jira auth login ...`; otherwise they paste it into their own terminal). Never ask the user to paste a token into the conversation, and never put a real token on a command line you execute.
+
 The auth type is auto-detected from the base URL: `*.atlassian.net` -> `basic` (email + API token), anything else -> `pat` (Personal Access Token). Tokens live in the OS keychain - never on disk.
+
+Cloud profiles use REST v3 + ADF bodies. Jira Server / Data Center profiles use REST v2 + wiki/plain text bodies.
 
 ## Jira Cloud (`*.atlassian.net`)
 

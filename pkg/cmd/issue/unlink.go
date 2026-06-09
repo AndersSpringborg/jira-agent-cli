@@ -40,7 +40,12 @@ func newUnlinkCmd(f *cmdutil.Factory) *cobra.Command {
 						return err
 					}
 					driver := f.DisplayDriver(cmd)
-					return driver.Message("Unlinked %s and %s", issue1, issue2)
+					return writeMutationResult(driver, map[string]any{
+						"status": "unlinked",
+						"issue1": issue1,
+						"issue2": issue2,
+						"linkId": linkID,
+					})
 				}
 			}
 

@@ -8,9 +8,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func parseViewFields(commaSeparated string, repeatable []string) []string {
+	fields := make([]string, 0, len(repeatable))
+	if commaSeparated != "" {
+		for _, fld := range strings.Split(commaSeparated, ",") {
+			fld = strings.TrimSpace(fld)
+			if fld != "" {
+				fields = append(fields, fld)
+			}
+		}
+	}
+	for _, fld := range repeatable {
+		fld = strings.TrimSpace(fld)
+		if fld != "" {
+			fields = append(fields, fld)
+		}
+	}
+	return fields
+}
+
 func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 	var (
 		fields    string
+		fieldList []string
 		comments  int
 		rawOutput bool
 	)
@@ -30,22 +50,14 @@ func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 
 			driver := f.DisplayDriver(cmd)
 
-			var fieldList []string
-			if fields != "" {
-				for _, fld := range strings.Split(fields, ",") {
-					fld = strings.TrimSpace(fld)
-					if fld != "" {
-						fieldList = append(fieldList, fld)
-					}
-				}
-			}
+			requestedFields := parseViewFields(fields, fieldList)
 
 			// Request comments if the user asked for them.
 			if comments > 0 {
-				fieldList = append(fieldList, "comment")
+				requestedFields = append(requestedFields, "comment")
 			}
 
-			data, err := client.GetIssue(issueKey, fieldList)
+			data, err := client.GetIssue(issueKey, requestedFields)
 			if err != nil {
 				return err
 			}
@@ -90,6 +102,7 @@ func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&fields, "fields", "", "Comma-separated fields to fetch")
+	cmd.Flags().StringArrayVarP(&fieldList, "field", "F", nil, "Field to fetch (repeatable)")
 	cmd.Flags().IntVar(&comments, "comments", 0, "Number of recent comments to display")
 	cmd.Flags().BoolVar(&rawOutput, "raw", false, "Print raw JSON")
 

@@ -1,16 +1,18 @@
 # End-to-end workflows
 
+The mutating steps below (create, assign, edit, move, comment, clone, bulk transitions) require user approval first — draft the exact command, get a yes, then run it.
+
 ## Full issue lifecycle
 
 ```bash
-# 1. Create
+# 1. Create (default output includes .key; --raw prints the full Jira response)
 jira issue create \
   -p PROJ \
   -s "Fix login timeout" \
   -t Bug \
-  -d "Users see timeout after 30s" \
-  --priority High
-# -> { "key": "PROJ-456", ... }
+  -b "Users see timeout after 30s" \
+  -y High
+# -> { "status": "created", "key": "PROJ-456", ... }
 
 # 2. Assign to me
 jira issue assign PROJ-456 me
@@ -22,7 +24,7 @@ jira issue edit PROJ-456 --field customfield_10016=5
 jira issue move PROJ-456 "In Progress"
 
 # 5. Comment with findings
-jira issue comment PROJ-456 -b "Root cause: connection pool exhaustion"
+jira issue comment add PROJ-456 "Root cause: connection pool exhaustion"
 
 # 6. Resolve
 jira issue move PROJ-456 "Done"

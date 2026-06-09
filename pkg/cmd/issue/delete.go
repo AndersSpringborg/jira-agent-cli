@@ -26,7 +26,10 @@ func newDeleteCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			driver := f.DisplayDriver(cmd)
-			return driver.Message("Deleted issue: %s", issueKey)
+			return writeMutationResult(driver, map[string]any{
+				"status": "deleted",
+				"key":    issueKey,
+			})
 		},
 	}
 

@@ -2,6 +2,7 @@ package issue
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -19,16 +20,10 @@ func newCommentAddCmd(f *cmdutil.Factory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueKey := strings.ToUpper(args[0])
 
-			var body string
-			if len(args) > 1 {
-				body = args[1]
+			body, err := resolveCommentBody(args[1:], template)
+			if err != nil {
+				return err
 			}
-
-			if body == "" {
-				return fmt.Errorf("comment body is required (pass as argument or use --template)")
-			}
-
-			_ = template
 
 			client, err := f.LoadClient()
 			if err != nil {
@@ -40,13 +35,34 @@ func newCommentAddCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			driver := f.DisplayDriver(cmd)
-			return driver.Message("Added comment to: %s", issueKey)
+			return writeMutationResult(driver, map[string]any{
+				"status": "comment_added",
+				"key":    issueKey,
+			})
 		},
 	}
 
 	cmd.Flags().StringVar(&template, "template", "", "Load comment body from template file")
 
 	return cmd
+}
+
+func resolveCommentBody(args []string, template string) (string, error) {
+	if len(args) > 0 && args[0] != "" {
+		return args[0], nil
+	}
+	if template == "" {
+		return "", fmt.Errorf("comment body is required (pass as argument or use --template)")
+	}
+	data, err := os.ReadFile(template)
+	if err != nil {
+		return "", fmt.Errorf("read comment template: %w", err)
+	}
+	body := strings.TrimSpace(string(data))
+	if body == "" {
+		return "", fmt.Errorf("comment template %q is empty", template)
+	}
+	return body, nil
 }
 
 func newCommentCmd(f *cmdutil.Factory) *cobra.Command {

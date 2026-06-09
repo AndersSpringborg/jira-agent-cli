@@ -19,7 +19,6 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 		parent      string
 		fixVersions []string
 		components  []string
-		noInput     bool
 		rawOutput   bool
 	)
 
@@ -62,7 +61,11 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 				return driver.Raw(data)
 			}
 
-			return driver.Message("Created issue: %v", data["key"])
+			return writeMutationResult(driver, map[string]any{
+				"status": "created",
+				"key":    data["key"],
+				"id":     data["id"],
+			})
 		},
 	}
 
@@ -75,7 +78,6 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVarP(&parent, "parent", "P", "", "Parent issue key (epic)")
 	cmd.Flags().StringSliceVarP(&components, "component", "C", nil, "Component (repeatable)")
 	cmd.Flags().StringSliceVar(&fixVersions, "fix-version", nil, "Fix version (repeatable)")
-	cmd.Flags().BoolVar(&noInput, "no-input", false, "Disable interactive prompt")
 	cmd.Flags().BoolVar(&rawOutput, "raw", false, "Print raw JSON")
 
 	return cmd
