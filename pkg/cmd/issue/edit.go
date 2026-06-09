@@ -1,6 +1,7 @@
 package issue
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -30,6 +31,10 @@ Custom fields use --field with the raw field ID:
 
   jira issue edit PROJ-123 --field customfield_10001=5
   jira issue edit PROJ-123 --field customfield_10002="Option A"
+
+A value that looks like a JSON object or array is parsed, which is
+required for user-picker and multi-value fields:
+  jira issue edit PROJ-123 --field 'customfield_10145={"accountId":"712020:..."}'
 
 Array fields (labels, components, fix-versions) support add/remove
 with a - prefix: --label bugfix --label -wontfix`,
@@ -114,12 +119,26 @@ with a - prefix: --label bugfix --label -wontfix`,
 }
 
 // parseCustomFields splits "key=value" entries from --field flags.
-func parseCustomFields(raw []string) (map[string]string, error) {
-	result := make(map[string]string, len(raw))
+func parseCustomFields(raw []string) (map[string]any, error) {
+	result := make(map[string]any, len(raw))
 	for _, entry := range raw {
 		k, v, ok := strings.Cut(entry, "=")
 		if !ok || k == "" {
 			return nil, fmt.Errorf("invalid --field format %q: expected key=value", entry)
+		}
+		// Values that look like a JSON object or array are parsed so that
+		// complex fields can be set, e.g. a user-picker field:
+		//   --field 'customfield_10145={"accountId":"712020:..."}'
+		// Plain values are kept as strings (Jira accepts strings for text
+		// and single-select option fields).
+		trimmed := strings.TrimSpace(v)
+		if strings.HasPrefix(trimmed, "{") || strings.HasPrefix(trimmed, "[") {
+			var parsed any
+			if err := json.Unmarshal([]byte(trimmed), &parsed); err != nil {
+				return nil, fmt.Errorf("invalid JSON for --field %s: %w", k, err)
+			}
+			result[k] = parsed
+			continue
 		}
 		result[k] = v
 	}

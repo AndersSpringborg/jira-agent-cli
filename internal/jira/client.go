@@ -291,6 +291,16 @@ func (c *Client) Search(jql string, startAt, maxResults int) (map[string]any, er
 	return c.getJSON(path)
 }
 
+// SearchWithChangelog runs a JQL search and asks Jira to expand each issue's
+// changelog, so callers can inspect change history. Used by `me audit` to
+// reconstruct a user's activity from issue history.
+func (c *Client) SearchWithChangelog(jql string, maxResults int) (map[string]any, error) {
+	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&maxResults=%d&fields=%s&expand=changelog",
+		urlEncode(jql), maxResults,
+		"key,summary,status,issuetype,created,updated")
+	return c.getJSON(path)
+}
+
 // --- Boards ---
 
 // ListBoards lists boards, optionally filtered by name and project.
