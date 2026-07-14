@@ -7,7 +7,7 @@
 - [x] Implement deterministic line rendering without recursive duplication or cycle loops.
 - [x] Update README and Jira CLI skill with mocked `graph-pretty` output.
 - [x] Run focused tests, formatting, full tests, build, lint, and `git diff --check`.
-- [ ] Review the diff, update this review section and PR #7 description, stage only intended files, commit, and push.
+- [x] Review the diff, update this review section and PR #7 description, stage only intended files, commit, and push.
 
 ## Agreed CLI
 
