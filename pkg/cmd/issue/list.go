@@ -78,8 +78,8 @@ Examples:
 			if assignee != "" {
 				jqlParts = append(jqlParts, fmt.Sprintf("assignee = %s", assignee))
 			}
-			if status != "" {
-				jqlParts = append(jqlParts, fmt.Sprintf("status = \"%s\"", status)) //nolint:gocritic // JQL syntax
+			if clause := statusJQL(status); clause != "" {
+				jqlParts = append(jqlParts, clause)
 			}
 			if issueType != "" {
 				jqlParts = append(jqlParts, fmt.Sprintf("issuetype = \"%s\"", issueType)) //nolint:gocritic // JQL syntax
@@ -151,7 +151,7 @@ Examples:
 
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "Filter by assignee (use 'currentUser()' for self)")
-	cmd.Flags().StringVar(&status, "status", "", "Filter by status")
+	cmd.Flags().StringVar(&status, "status", "", "Filter by status (comma-separated for multiple)")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "Filter by issue type")
 	cmd.Flags().StringVar(&epic, "epic", "", "Filter by epic issue key")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Filter by label (repeatable)")

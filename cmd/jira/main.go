@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"AndersSpringborg/jira-cli/internal/build"
@@ -10,8 +9,7 @@ import (
 
 func main() {
 	rootCmd := cmd.NewRootCmd(build.Version, build.Date)
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+	if err := cmd.Execute(rootCmd); err != nil {
 		os.Exit(1)
 	}
 }

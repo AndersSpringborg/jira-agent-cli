@@ -46,6 +46,8 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Intent                            | Command                                                       |
 |-----------------------------------|---------------------------------------------------------------|
 | List issues in current project    | `jira issue list` (alias `ls`)                                |
+| Find dependency-ready work        | `jira issue ready` (no unresolved `Blocks` blockers)          |
+| Inspect dependency graph          | `jira issue graph` (`nodes`, blocker -> blocked `edges`, `ready`, `blocked`, `cycles`) |
 | List issues assigned to me        | `jira mine` (alias `my`); `--all` includes done               |
 | View an issue                     | `jira issue view PROJ-123` (alias `get`; supports `-F`)       |
 | Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-b "body"] [-y High]` |
@@ -71,7 +73,9 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
 | Context defaults                  | `jira context set --project PROJ` (also `--board-id`, `--epic`, `--label`, `--issue-type`, `--status`, `--assignee`, `--display`) |
 
-For anything not listed, run `jira <group> --help` - help is authoritative.
+For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
+
+Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
 
 ## Output format
 
