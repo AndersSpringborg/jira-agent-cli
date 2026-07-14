@@ -490,6 +490,43 @@ Examples:
 	return cmd
 }
 
+func newGraphPrettyCmd(f *cmdutil.Factory) *cobra.Command {
+	opts := &dependencyOptions{}
+	cmd := &cobra.Command{
+		Use:   "graph-pretty",
+		Short: "Draw a human-readable issue dependency graph",
+		Long: `Draw the active project/context dependency graph with Unicode connecting lines.
+
+The command first builds the complete dependency graph, condenses cycles, and
+assigns dependency-depth layers. It then renders each connected component from
+top to bottom with continuous blocker-to-blocked lines. Branches fan out and
+shared dependencies visibly join before the downstream issue, without recursive
+subtree duplication or cycle loops. Compact markers identify ready, blocked,
+resolved, external/out-of-scope, and cyclic issues. A blocker is resolved only
+when its Jira resolution field is set.
+
+The command uses the same project/context scope, filters, external dependency
+hydration, and --link-type behavior as issue graph. Output is always plain text,
+regardless of the global --format setting, for direct terminal inspection.
+
+Examples:
+  jira issue graph-pretty
+  jira issue graph-pretty --project PROJ
+  jira issue graph-pretty --status "Define,To Do,Backlog"
+  jira issue graph-pretty --label backend --link-type Depends`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			graph, err := loadDependencyGraph(f, opts)
+			if err != nil {
+				return err
+			}
+			return writeDependencyGraphPretty(cmd.OutOrStdout(), graph)
+		},
+	}
+	opts.bindFlags(cmd)
+	return cmd
+}
+
 func newGraphCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &dependencyOptions{}
 	cmd := &cobra.Command{

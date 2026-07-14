@@ -48,6 +48,7 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | List issues in current project    | `jira issue list` (alias `ls`)                                |
 | Find dependency-ready work        | `jira issue ready` (no unresolved `Blocks` blockers)          |
 | Inspect dependency graph          | `jira issue graph` (`nodes`, blocker -> blocked `edges`, `ready`, `blocked`, `cycles`) |
+| Visually verify dependencies      | `jira issue graph-pretty` (connected lines and concise state markers) |
 | List issues assigned to me        | `jira mine` (alias `my`); `--all` includes done               |
 | View an issue                     | `jira issue view PROJ-123` (alias `get`; supports `-F`)       |
 | Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-b "body"] [-y High]` |
@@ -75,7 +76,25 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
 
-Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
+Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. Use `jira issue graph-pretty` when a human should verify the full topology: it builds the graph first, layers it by dependency depth, and draws continuous top-down branch and join lines. `●`, `○`, `✓`, `◇`, and `↻` mark ready, blocked, resolved, external, and cyclic nodes. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
+
+Example `graph-pretty` output:
+
+```text
+Dependency graph (blocker ──▶ blocked)
+Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
+
+Component 1
+          ● PROJ-1
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+   ○ PROJ-2      ○ PROJ-3
+       │             │
+       └──────┬──────┘
+              ▼
+          ○ PROJ-4
+```
 
 ## Output format
 

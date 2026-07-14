@@ -1,5 +1,22 @@
 # Issue dependency commands
 
+## graph-pretty full-layout correction
+
+- [x] Replace adjacency snapshots with failing top-down full-graph snapshots, including visible branch joins.
+- [x] Build a deterministic layered layout model from the complete graph before rendering.
+- [x] Render continuous top-down branch/join connectors, disconnected components, external/resolved states, and cycle groups.
+- [x] Update mocked output in README, skill docs, task review, and the open PR.
+- [x] Run formatting, focused/full tests, build, lint, and diff checks; commit and push only intended files.
+
+## graph-pretty implementation plan
+
+- [x] Add failing snapshot/string tests for chains, branches/shared dependencies, disconnected nodes, resolved/external nodes, and cycles.
+- [x] Register `jira issue graph-pretty` with reused scope/link flags, strong long help, and examples.
+- [x] Implement deterministic line rendering without recursive duplication or cycle loops.
+- [x] Update README and Jira CLI skill with mocked `graph-pretty` output.
+- [x] Run focused tests, formatting, full tests, build, lint, and `git diff --check`.
+- [x] Review the diff, update this review section and PR #7 description, stage only intended files, commit, and push.
+
 ## Agreed CLI
 
 - `jira issue ready`: list unresolved issues in the active project/context that have no unresolved `Blocks` dependencies.
@@ -37,3 +54,21 @@
 - Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
 - Manual failure check: `./bin/jira issue view` printed the argument error followed by complete `jira issue view` help.
 - Reviewer subagents were attempted but the local subagent runner repeatedly exited/timed out without a review result; a parent-side diff review found no additional changes required.
+
+## graph-pretty review
+
+- Added a deterministic per-component adjacency view: each node has one full labeled row and sorted outgoing blocker-to-blocked connectors, avoiding recursive subtree duplication and cycle traversal.
+- State labels and symbols distinguish ready, blocked, resolved, external/out-of-scope, and cycle nodes while retaining summaries and disconnected components.
+- Snapshot tests cover a chain, branch with shared dependency, disconnected node, resolved external blocker, and cycle; command tests cover registration, help semantics, and inherited link flags.
+- Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
+- Fresh-context reviewer subagents were attempted, but the local async runner exited before producing results; parent-side review found no additional changes required.
+- PR #7 was already merged before the feature commits were pushed, so the implementation is proposed in follow-up PR #8: https://github.com/AndersSpringborg/jira-agent-cli/pull/8
+
+## graph-pretty full-layout review
+
+- Replaced the adjacency listing with a two-phase implementation: build a deterministic layout from the complete graph, then render it.
+- The layout condenses strongly connected components, layers the resulting DAG by dependency depth, preserves long edges through virtual routing nodes, and separates weakly connected components.
+- The renderer uses compact issue keys and continuous top-down Unicode routes. Branches fan out and shared downstream dependencies visibly join before their target.
+- Cycle groups preserve their internal directed edges; ready, blocked, resolved, external, and cyclic states remain visible through compact markers.
+- Snapshot tests cover chains, branch/join diamonds, disconnected components, resolved external blockers, and cycles. A layout-model test verifies the joined graph before rendering.
+- Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
