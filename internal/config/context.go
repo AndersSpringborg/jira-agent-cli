@@ -16,7 +16,7 @@ func BuildJQL(ctx *Context) string {
 		clauses = append(clauses, fmt.Sprintf(`project = "%s"`, ctx.Project)) //nolint:gocritic // JQL requires double-quoted strings, not Go %q escaping
 	}
 	if ctx.Epic != "" {
-		clauses = append(clauses, fmt.Sprintf(`"Epic Link" = "%s"`, ctx.Epic)) //nolint:gocritic // JQL syntax
+		clauses = append(clauses, fmt.Sprintf(`("Epic Link" = "%s" OR parent = "%s")`, ctx.Epic, ctx.Epic)) //nolint:gocritic // JQL syntax
 	}
 	if len(ctx.Labels) > 0 {
 		quoted := make([]string, len(ctx.Labels))

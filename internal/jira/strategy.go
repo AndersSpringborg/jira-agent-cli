@@ -12,6 +12,7 @@ import (
 type Strategy interface {
 	APIPath(resource string) string
 	SearchPath() string
+	SearchUsesPageToken() bool
 	TextBody(text string) any
 	CommentBody(text string) any
 	AssignBody(accountID, name string) map[string]any
@@ -24,6 +25,7 @@ type cloudStrategy struct{}
 
 func (cloudStrategy) APIPath(resource string) string { return "/rest/api/3/" + resource }
 func (cloudStrategy) SearchPath() string             { return "/rest/api/3/search/jql" }
+func (cloudStrategy) SearchUsesPageToken() bool      { return true }
 func (cloudStrategy) TextBody(text string) any       { return markdownToADF(text) }
 func (cloudStrategy) CommentBody(text string) any    { return markdownToADF(text) }
 func (cloudStrategy) AssignBody(accountID, name string) map[string]any {
@@ -55,6 +57,7 @@ type serverStrategy struct{}
 
 func (serverStrategy) APIPath(resource string) string { return "/rest/api/2/" + resource }
 func (serverStrategy) SearchPath() string             { return "/rest/api/2/search" }
+func (serverStrategy) SearchUsesPageToken() bool      { return false }
 func (serverStrategy) TextBody(text string) any       { return md.ToJiraMD(text) }
 func (serverStrategy) CommentBody(text string) any    { return md.ToJiraMD(text) }
 func (serverStrategy) AssignBody(accountID, name string) map[string]any {

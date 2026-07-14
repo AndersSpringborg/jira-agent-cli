@@ -130,6 +130,42 @@ func TestSearch(t *testing.T) {
 	assert.Len(t, issues, 1)
 }
 
+func TestSearchFollowsCloudPageTokens(t *testing.T) {
+	requestCount := 0
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		w.Header().Set("Content-Type", "application/json")
+
+		switch requestCount {
+		case 1:
+			assert.Empty(t, r.URL.Query().Get("nextPageToken"))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"nextPageToken": "page-2",
+				"issues": []any{
+					map[string]any{"key": "TEST-1"},
+					map[string]any{"key": "TEST-2"},
+				},
+			})
+		case 2:
+			assert.Equal(t, "page-2", r.URL.Query().Get("nextPageToken"))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"isLast": true,
+				"issues": []any{
+					map[string]any{"key": "TEST-3"},
+				},
+			})
+		default:
+			t.Fatalf("unexpected request %d", requestCount)
+		}
+	})
+	defer server.Close()
+
+	data, err := client.Search("project = TEST", 0, 25)
+	require.NoError(t, err)
+	assert.Equal(t, 2, requestCount)
+	assert.Len(t, data["issues"], 3)
+}
+
 func TestSearchIncludesCustomFields(t *testing.T) {
 	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
 		fields := r.URL.Query().Get("fields")

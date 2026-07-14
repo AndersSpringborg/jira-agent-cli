@@ -292,9 +292,45 @@ func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...stri
 	if len(extraFields) > 0 {
 		fields += "," + strings.Join(extraFields, ",")
 	}
-	path := fmt.Sprintf("%s?jql=%s&startAt=%d&maxResults=%d&fields=%s",
-		c.strategy.SearchPath(), urlEncode(jql), startAt, maxResults, fields)
-	return c.getJSON(path)
+
+	searchPage := func(pageSize int, nextPageToken string) (map[string]any, error) {
+		path := fmt.Sprintf("%s?jql=%s&startAt=%d&maxResults=%d&fields=%s",
+			c.strategy.SearchPath(), urlEncode(jql), startAt, pageSize, fields)
+		if nextPageToken != "" {
+			path += "&nextPageToken=" + urlEncode(nextPageToken)
+		}
+		return c.getJSON(path)
+	}
+
+	data, err := searchPage(maxResults, "")
+	if err != nil || !c.strategy.SearchUsesPageToken() || maxResults <= 0 {
+		return data, err
+	}
+
+	issues, _ := data["issues"].([]any)
+	for len(issues) < maxResults {
+		nextPageToken, _ := data["nextPageToken"].(string)
+		if nextPageToken == "" {
+			break
+		}
+
+		page, pageErr := searchPage(maxResults-len(issues), nextPageToken)
+		if pageErr != nil {
+			return nil, pageErr
+		}
+		pageIssues, _ := page["issues"].([]any)
+		issues = append(issues, pageIssues...)
+
+		delete(data, "nextPageToken")
+		for key, value := range page {
+			if key != "issues" {
+				data[key] = value
+			}
+		}
+		data["issues"] = issues
+	}
+
+	return data, nil
 }
 
 // SearchWithChangelog runs a JQL search and asks Jira to expand each issue's
