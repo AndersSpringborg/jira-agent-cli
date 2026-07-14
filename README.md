@@ -182,21 +182,22 @@ jira issue graph-pretty --project PROJ
 
 `issue ready` returns unresolved issues with no unresolved blockers, ordered by how much unresolved work they directly unblock. A blocker is resolved only when its Jira `resolution` field is set. `issue graph` returns a stable object containing `nodes`, directed `edges`, `ready`, `blocked`, and `cycles`. Linked blockers outside the selected scope remain in the graph with `inScope: false`.
 
-`issue graph-pretty` renders the same analyzed graph as deterministic plain text. Every issue appears once per connected component and its outgoing lines point from blocker to blocked issue, so branches, shared dependencies, disconnected work, and cycles remain explicit without recursive tree duplication. It always emits plain text regardless of `--format`.
+`issue graph-pretty` builds the complete graph before rendering it as deterministic plain text. It condenses cycles, assigns dependency-depth layers, and draws each connected component from top to bottom. Continuous lines make branches and shared downstream joins visible without duplicating subtrees. Compact issue keys keep larger graphs readable; use `issue graph` when summaries or full node metadata are needed. `graph-pretty` always emits plain text regardless of `--format`.
 
 ```text
 Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
 
 Component 1
-● PROJ-1 [ready] Define API
-├──▶ PROJ-2
-└──▶ PROJ-3
-○ PROJ-2 [blocked] Build backend
-└──▶ PROJ-4
-○ PROJ-3 [blocked] Build frontend
-└──▶ PROJ-4
-○ PROJ-4 [blocked] Release
+          ● PROJ-1
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+   ○ PROJ-2      ○ PROJ-3
+       │             │
+       └──────┬──────┘
+              ▼
+          ○ PROJ-4
 ```
 
 ## Configuration

@@ -76,7 +76,7 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
 
-Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. Use `jira issue graph-pretty` when a human should verify the same graph through blocker-to-blocked connecting lines; `●`, `○`, `✓`, `◇`, and `↻` mark ready, blocked, resolved, external, and cyclic nodes. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
+Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. Use `jira issue graph-pretty` when a human should verify the full topology: it builds the graph first, layers it by dependency depth, and draws continuous top-down branch and join lines. `●`, `○`, `✓`, `◇`, and `↻` mark ready, blocked, resolved, external, and cyclic nodes. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
 
 Example `graph-pretty` output:
 
@@ -85,11 +85,15 @@ Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
 
 Component 1
-● PROJ-1 [ready] Define API
-├──▶ PROJ-2
-└──▶ PROJ-3
-○ PROJ-2 [blocked] Build backend
-○ PROJ-3 [blocked] Build frontend
+          ● PROJ-1
+              │
+       ┌──────┴──────┐
+       ▼             ▼
+   ○ PROJ-2      ○ PROJ-3
+       │             │
+       └──────┬──────┘
+              ▼
+          ○ PROJ-4
 ```
 
 ## Output format
