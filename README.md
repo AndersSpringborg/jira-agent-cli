@@ -107,6 +107,8 @@ Set a persistent default with `jira context set --display markdown`; `--format` 
 
 Every mutation is a single command with explicit flags, so the transcript line is exactly what changed. Write commands print the result as JSON and exit non-zero on failure, so you can chain them with `&&` and check the exit code.
 
+Issue descriptions and comment bodies are written in **Markdown** (CommonMark): headings, bullet/ordered lists, fenced code blocks, links, bold/italic. The CLI converts it to the format the server expects — ADF on Jira Cloud, wiki markup on Server/Data Center — so you never hand-write `{code}` or `h3.` wiki syntax.
+
 ```bash
 # Create (prints structured JSON with .key; add --raw for the full Jira response)
 jira issue create -p PROJ -s "Fix login bug" -t Bug -b "Steps to reproduce..."

@@ -39,6 +39,7 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 6. **`--profile NAME`** overrides the active profile for a single command.
 7. **`jira auth status` is local-only** (keychain check). Use `jira ping` or `jira auth whoami` to confirm the token actually works.
 8. **Custom fields use raw IDs:** `--field customfield_10016=5`. Repeatable.
+9. **Bodies are Markdown.** `--body`/`-b` (and comment text) take CommonMark - headings, lists, fenced code blocks, links, bold/italic. The CLI converts it to ADF on Cloud and wiki markup on Server/DC. Write Markdown, not raw `{code}`/`h3.` wiki syntax.
 
 ## Intent -> command
 

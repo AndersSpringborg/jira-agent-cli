@@ -15,7 +15,7 @@ func newCommentAddCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "add <issue-key> [body]",
-		Short: "Add a comment to an issue",
+		Short: "Add a comment to an issue (body is Markdown, converted to Jira ADF/wiki markup)",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueKey := strings.ToUpper(args[0])
