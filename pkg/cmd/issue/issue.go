@@ -28,6 +28,8 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newLinkCmd(f))
 	cmd.AddCommand(newUnlinkCmd(f))
 	cmd.AddCommand(newCloneCmd(f))
+	cmd.AddCommand(newReadyCmd(f))
+	cmd.AddCommand(newGraphCmd(f))
 
 	return cmd
 }

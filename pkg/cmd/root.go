@@ -2,6 +2,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/pkg/cmd/auth"
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
@@ -21,6 +23,25 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// Execute runs root and, on failure, prints the error and the failing
+// command's complete help text to stderr so automated callers can recover.
+func Execute(root *cobra.Command) error {
+	executed, err := root.ExecuteC()
+	if err == nil {
+		return nil
+	}
+	if executed == nil {
+		executed = root
+	}
+	executed.PrintErrln(err)
+	executed.PrintErrln()
+	executed.SetOut(executed.ErrOrStderr())
+	if helpErr := executed.Help(); helpErr != nil {
+		return fmt.Errorf("%w (render help: %v)", err, helpErr)
+	}
+	return err
+}
 
 // NewRootCmd creates the root cobra command for the jira CLI.
 func NewRootCmd(version, date string) *cobra.Command {

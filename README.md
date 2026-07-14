@@ -92,6 +92,8 @@ jira issue view PROJ-123
 jira issue create -p PROJ -s "Fix login bug" -t Bug
 jira search jql "project = PROJ AND status = 'In Progress'"
 jira issue list | jq '.[].key'
+jira issue ready                       # unresolved work with no unresolved blockers
+jira issue graph | jq '{ready, cycles}'
 ```
 
 ## Output Formats
@@ -125,8 +127,10 @@ jira issue move PROJ-123 Done --resolution Fixed --comment "Shipped in v1.2"
 jira issue assign PROJ-123 me
 jira issue comment add PROJ-123 "Investigated -- root cause was a stale cache."
 
-# Link, clone, delete
+# Link, inspect dependencies, clone, delete
 jira issue link PROJ-123 PROJ-456 "blocks"
+jira issue ready                       # highest-leverage ready work first
+jira issue graph                       # nodes, blocker -> blocked edges, ready, blocked, cycles
 jira issue clone PROJ-123 -s "Follow-up: ..."
 jira issue delete PROJ-123
 
@@ -150,7 +154,7 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 | `jira auth`    | Login, logout, status, whoami                |
 | `jira config`  | Manage profiles (init, list, show, set, use, delete) |
 | `jira context` | Set default filters (project, board, labels, etc.)   |
-| `jira issue`   | Full issue lifecycle (list, view, create, edit, delete, assign, move, comment, link, clone) |
+| `jira issue`   | Full issue lifecycle plus dependency analysis (`ready`, `graph`) |
 | `jira board`   | List boards, view board issues               |
 | `jira sprint`  | List, start, close sprints; add issues       |
 | `jira project` | List and view projects                       |
@@ -161,7 +165,19 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 | `jira open`    | Open project or issue in browser             |
 | `jira ping`    | Check connectivity to Jira                   |
 
-Run `jira <command> --help` for details on any command.
+Run `jira <command> --help` for details on any command. Failed commands also print the failing command's complete help text to stderr, so agents can recover without a second discovery call.
+
+### Resolving issue dependencies
+
+Jira's `Blocks` links form a directed graph from blocker to blocked issue. The dependency commands use the active project/context filters and accept the same scope flags (`--project`, `--status`, `--assignee`, `--type`, `--epic`, `--label`, and `--max`). Status accepts a comma-separated set, for example `--status "Define,To Do,Backlog"`. Use `--link-type` if your Jira site names dependency links differently.
+
+```bash
+jira issue ready --project PROJ
+jira issue graph --project PROJ | jq '.edges'
+jira issue graph --project PROJ --format markdown
+```
+
+`issue ready` returns unresolved issues with no unresolved blockers, ordered by how much unresolved work they directly unblock. A blocker is resolved only when its Jira `resolution` field is set. `issue graph` returns a stable object containing `nodes`, directed `edges`, `ready`, `blocked`, and `cycles`. Linked blockers outside the selected scope remain in the graph with `inScope: false`.
 
 ## Configuration
 

@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestStatusJQLSupportsCommaSeparatedStatuses(t *testing.T) {
+	assert.Equal(t, `status = "To Do"`, statusJQL("To Do"))
+	assert.Equal(t, `status in ("define", "to do", "backlog")`, statusJQL("define, to do,backlog"))
+	assert.Equal(t, "", statusJQL(" , "))
+}
+
 func TestListDefaultsToFiftyIssues(t *testing.T) {
 	cmd := newListCmd(nil)
 
