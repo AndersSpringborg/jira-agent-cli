@@ -2,6 +2,7 @@ package issue
 
 import (
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -451,6 +452,128 @@ func markdownCell(value string) string {
 	return strings.ReplaceAll(value, "\n", " ")
 }
 
+func renderDependencyGraphPretty(graph *dependencyGraph) string {
+	var text strings.Builder
+	text.WriteString("Dependency graph (blocker ──▶ blocked)\n")
+	text.WriteString("Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle\n")
+	if len(graph.Nodes) == 0 {
+		text.WriteString("\nNo issues.\n")
+		return text.String()
+	}
+
+	outgoing := make(map[string][]string)
+	neighbors := make(map[string][]string)
+	for _, edge := range graph.Edges {
+		outgoing[edge.From] = append(outgoing[edge.From], edge.To)
+		neighbors[edge.From] = append(neighbors[edge.From], edge.To)
+		neighbors[edge.To] = append(neighbors[edge.To], edge.From)
+	}
+	for key := range outgoing {
+		sort.Strings(outgoing[key])
+	}
+	for key := range neighbors {
+		sort.Strings(neighbors[key])
+	}
+
+	cycleNodes := make(map[string]bool)
+	for _, cycle := range graph.Cycles {
+		for _, key := range cycle {
+			cycleNodes[key] = true
+		}
+	}
+	readyNodes := make(map[string]bool, len(graph.Ready))
+	for _, key := range graph.Ready {
+		readyNodes[key] = true
+	}
+
+	seen := make(map[string]bool, len(graph.Nodes))
+	componentNumber := 0
+	for i := range graph.Nodes {
+		if seen[graph.Nodes[i].Key] {
+			continue
+		}
+		componentNumber++
+		component := dependencyComponent(graph.Nodes[i].Key, neighbors, seen)
+		fmt.Fprintf(&text, "\nComponent %d\n", componentNumber)
+		for _, key := range component {
+			node := dependencyNodeByKey(graph.Nodes, key)
+			marker, states := prettyDependencyState(&node, readyNodes[key], cycleNodes[key])
+			fmt.Fprintf(&text, "%s %s [%s]", marker, node.Key, strings.Join(states, ", "))
+			if summary := strings.Join(strings.Fields(node.Summary), " "); summary != "" {
+				fmt.Fprintf(&text, " %s", summary)
+			}
+			text.WriteByte('\n')
+			for edgeIndex, target := range outgoing[key] {
+				connector := "├──▶"
+				if edgeIndex == len(outgoing[key])-1 {
+					connector = "└──▶"
+				}
+				fmt.Fprintf(&text, "%s %s\n", connector, target)
+			}
+		}
+	}
+	return text.String()
+}
+
+func dependencyComponent(start string, neighbors map[string][]string, seen map[string]bool) []string {
+	queue := []string{start}
+	seen[start] = true
+	component := make([]string, 0, 1)
+	for len(queue) > 0 {
+		key := queue[0]
+		queue = queue[1:]
+		component = append(component, key)
+		for _, neighbor := range neighbors[key] {
+			if !seen[neighbor] {
+				seen[neighbor] = true
+				queue = append(queue, neighbor)
+			}
+		}
+	}
+	sort.Strings(component)
+	return component
+}
+
+func dependencyNodeByKey(nodes []dependencyNode, key string) dependencyNode {
+	index := sort.Search(len(nodes), func(i int) bool { return nodes[i].Key >= key })
+	if index < len(nodes) && nodes[index].Key == key {
+		return nodes[index]
+	}
+	return dependencyNode{Key: key}
+}
+
+func prettyDependencyState(node *dependencyNode, ready, cycle bool) (string, []string) {
+	states := make([]string, 0, 3)
+	marker := "○"
+	switch {
+	case node.Resolved:
+		marker = "✓"
+		states = append(states, "resolved")
+	case cycle:
+		marker = "↻"
+		states = append(states, "blocked")
+	case !node.InScope:
+		marker = "◇"
+	case ready:
+		marker = "●"
+		states = append(states, "ready")
+	default:
+		states = append(states, "blocked")
+	}
+	if !node.InScope {
+		states = append(states, "external")
+	}
+	if cycle {
+		states = append(states, "cycle")
+	}
+	return marker, states
+}
+
+func writeDependencyGraphPretty(writer io.Writer, graph *dependencyGraph) error {
+	_, err := io.WriteString(writer, renderDependencyGraphPretty(graph))
+	return err
+}
+
 func newReadyCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &dependencyOptions{}
 	cmd := &cobra.Command{
@@ -484,6 +607,41 @@ Examples:
 				})
 			}
 			return f.DisplayDriver(cmd).List("Ready issues", []string{"key", "summary", "status", "assignee", "priority", "unblocksCount", "unblocks"}, rows)
+		},
+	}
+	opts.bindFlags(cmd)
+	return cmd
+}
+
+func newGraphPrettyCmd(f *cmdutil.Factory) *cobra.Command {
+	opts := &dependencyOptions{}
+	cmd := &cobra.Command{
+		Use:   "graph-pretty",
+		Short: "Draw a human-readable issue dependency graph",
+		Long: `Draw the active project/context dependency graph with Unicode connecting lines.
+
+Each component lists every issue once, followed by its blocker-to-blocked edges.
+This adjacency layout keeps branches and shared dependencies explicit without
+recursively duplicating subtrees or looping forever on cycles. Markers and labels
+identify ready, blocked, resolved, external/out-of-scope, and cyclic issues.
+A blocker is resolved only when its Jira resolution field is set.
+
+The command uses the same project/context scope, filters, external dependency
+hydration, and --link-type behavior as issue graph. Output is always plain text,
+regardless of the global --format setting, for direct terminal inspection.
+
+Examples:
+  jira issue graph-pretty
+  jira issue graph-pretty --project PROJ
+  jira issue graph-pretty --status "Define,To Do,Backlog"
+  jira issue graph-pretty --label backend --link-type Depends`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			graph, err := loadDependencyGraph(f, opts)
+			if err != nil {
+				return err
+			}
+			return writeDependencyGraphPretty(cmd.OutOrStdout(), graph)
 		},
 	}
 	opts.bindFlags(cmd)

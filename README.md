@@ -94,6 +94,7 @@ jira search jql "project = PROJ AND status = 'In Progress'"
 jira issue list | jq '.[].key'
 jira issue ready                       # unresolved work with no unresolved blockers
 jira issue graph | jq '{ready, cycles}'
+jira issue graph-pretty                # visual dependency check for humans
 ```
 
 ## Output Formats
@@ -131,6 +132,7 @@ jira issue comment add PROJ-123 "Investigated -- root cause was a stale cache."
 jira issue link PROJ-123 PROJ-456 "blocks"
 jira issue ready                       # highest-leverage ready work first
 jira issue graph                       # nodes, blocker -> blocked edges, ready, blocked, cycles
+jira issue graph-pretty                # connected human-readable dependency view
 jira issue clone PROJ-123 -s "Follow-up: ..."
 jira issue delete PROJ-123
 
@@ -175,9 +177,27 @@ Jira's `Blocks` links form a directed graph from blocker to blocked issue. The d
 jira issue ready --project PROJ
 jira issue graph --project PROJ | jq '.edges'
 jira issue graph --project PROJ --format markdown
+jira issue graph-pretty --project PROJ
 ```
 
 `issue ready` returns unresolved issues with no unresolved blockers, ordered by how much unresolved work they directly unblock. A blocker is resolved only when its Jira `resolution` field is set. `issue graph` returns a stable object containing `nodes`, directed `edges`, `ready`, `blocked`, and `cycles`. Linked blockers outside the selected scope remain in the graph with `inScope: false`.
+
+`issue graph-pretty` renders the same analyzed graph as deterministic plain text. Every issue appears once per connected component and its outgoing lines point from blocker to blocked issue, so branches, shared dependencies, disconnected work, and cycles remain explicit without recursive tree duplication. It always emits plain text regardless of `--format`.
+
+```text
+Dependency graph (blocker ──▶ blocked)
+Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
+
+Component 1
+● PROJ-1 [ready] Define API
+├──▶ PROJ-2
+└──▶ PROJ-3
+○ PROJ-2 [blocked] Build backend
+└──▶ PROJ-4
+○ PROJ-3 [blocked] Build frontend
+└──▶ PROJ-4
+○ PROJ-4 [blocked] Release
+```
 
 ## Configuration
 

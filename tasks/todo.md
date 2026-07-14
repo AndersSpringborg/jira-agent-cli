@@ -1,5 +1,14 @@
 # Issue dependency commands
 
+## graph-pretty implementation plan
+
+- [x] Add failing snapshot/string tests for chains, branches/shared dependencies, disconnected nodes, resolved/external nodes, and cycles.
+- [x] Register `jira issue graph-pretty` with reused scope/link flags, strong long help, and examples.
+- [x] Implement deterministic line rendering without recursive duplication or cycle loops.
+- [x] Update README and Jira CLI skill with mocked `graph-pretty` output.
+- [x] Run focused tests, formatting, full tests, build, lint, and `git diff --check`.
+- [ ] Review the diff, update this review section and PR #7 description, stage only intended files, commit, and push.
+
 ## Agreed CLI
 
 - `jira issue ready`: list unresolved issues in the active project/context that have no unresolved `Blocks` dependencies.
@@ -37,3 +46,11 @@
 - Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
 - Manual failure check: `./bin/jira issue view` printed the argument error followed by complete `jira issue view` help.
 - Reviewer subagents were attempted but the local subagent runner repeatedly exited/timed out without a review result; a parent-side diff review found no additional changes required.
+
+## graph-pretty review
+
+- Added a deterministic per-component adjacency view: each node has one full labeled row and sorted outgoing blocker-to-blocked connectors, avoiding recursive subtree duplication and cycle traversal.
+- State labels and symbols distinguish ready, blocked, resolved, external/out-of-scope, and cycle nodes while retaining summaries and disconnected components.
+- Snapshot tests cover a chain, branch with shared dependency, disconnected node, resolved external blocker, and cycle; command tests cover registration, help semantics, and inherited link flags.
+- Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
+- Fresh-context reviewer subagents were attempted, but the local async runner exited before producing results; parent-side review found no additional changes required.
