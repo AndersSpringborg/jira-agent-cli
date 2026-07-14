@@ -74,7 +74,7 @@ Examples:
 				jqlParts = append(jqlParts, "statusCategory != Done")
 			}
 			if epic != "" {
-				jqlParts = append(jqlParts, fmt.Sprintf(`"Epic Link" = %s`, epic))
+				jqlParts = append(jqlParts, fmt.Sprintf(`("Epic Link" = "%s" OR parent = "%s")`, epic, epic)) //nolint:gocritic // JQL requires double-quoted strings, not Go %q escaping
 			}
 			if status != "" {
 				jqlParts = append(jqlParts, fmt.Sprintf("status = \"%s\"", status)) //nolint:gocritic // JQL syntax

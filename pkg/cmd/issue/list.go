@@ -73,7 +73,7 @@ Examples:
 			// Build JQL
 			jqlParts := []string{fmt.Sprintf("project = %s", project)}
 			if epic != "" {
-				jqlParts = append(jqlParts, fmt.Sprintf(`"Epic Link" = %s`, epic))
+				jqlParts = append(jqlParts, fmt.Sprintf(`("Epic Link" = "%s" OR parent = "%s")`, epic, epic)) //nolint:gocritic // JQL requires double-quoted strings, not Go %q escaping
 			}
 			if assignee != "" {
 				jqlParts = append(jqlParts, fmt.Sprintf("assignee = %s", assignee))
@@ -155,7 +155,7 @@ Examples:
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "Filter by issue type")
 	cmd.Flags().StringVar(&epic, "epic", "", "Filter by epic issue key")
 	cmd.Flags().StringSliceVar(&labels, "label", nil, "Filter by label (repeatable)")
-	cmd.Flags().IntVar(&maxResults, "max", 20, "Max results")
+	cmd.Flags().IntVar(&maxResults, "max", 50, "Max results")
 	cmd.Flags().StringVar(&columns, "columns", "", "Comma-separated columns to display")
 	cmd.Flags().StringArrayVarP(&fields, "field", "F", nil, "Custom field ID to fetch and display (e.g. customfield_10145), repeatable")
 	cmd.Flags().BoolVar(&raw, "raw", false, "Print raw JSON response")
