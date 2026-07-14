@@ -54,3 +54,4 @@
 - Snapshot tests cover a chain, branch with shared dependency, disconnected node, resolved external blocker, and cycle; command tests cover registration, help semantics, and inherited link flags.
 - Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
 - Fresh-context reviewer subagents were attempted, but the local async runner exited before producing results; parent-side review found no additional changes required.
+- PR #7 was already merged before the feature commits were pushed, so the implementation is proposed in follow-up PR #8: https://github.com/AndersSpringborg/jira-agent-cli/pull/8
