@@ -5,7 +5,7 @@
 - [x] Replace adjacency snapshots with failing top-down full-graph snapshots, including visible branch joins.
 - [x] Build a deterministic layered layout model from the complete graph before rendering.
 - [x] Render continuous top-down branch/join connectors, disconnected components, external/resolved states, and cycle groups.
-- [ ] Update mocked output in README, skill docs, task review, and the open PR.
+- [x] Update mocked output in README, skill docs, task review, and the open PR.
 - [x] Run formatting, focused/full tests, build, lint, and diff checks; commit and push only intended files.
 
 ## graph-pretty implementation plan
