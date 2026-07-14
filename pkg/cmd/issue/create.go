@@ -72,7 +72,7 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd.Flags().StringVarP(&project, "project", "p", "", "Project key or ID")
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary")
 	cmd.Flags().StringVarP(&issueType, "type", "t", "", "Issue type (default: Task)")
-	cmd.Flags().StringVarP(&description, "body", "b", "", "Issue description")
+	cmd.Flags().StringVarP(&description, "body", "b", "", "Issue description (Markdown; converted to Jira ADF/wiki markup)")
 	cmd.Flags().StringVarP(&priority, "priority", "y", "", "Issue priority")
 	cmd.Flags().StringSliceVarP(&labels, "label", "l", nil, "Label (repeatable)")
 	cmd.Flags().StringVarP(&parent, "parent", "P", "", "Parent issue key (epic)")

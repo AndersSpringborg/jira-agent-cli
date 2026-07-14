@@ -108,7 +108,7 @@ with a - prefix: --label bugfix --label -wontfix`,
 	}
 
 	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary")
-	cmd.Flags().StringVarP(&description, "body", "b", "", "Issue description")
+	cmd.Flags().StringVarP(&description, "body", "b", "", "Issue description (Markdown; converted to Jira ADF/wiki markup)")
 	cmd.Flags().StringVarP(&priority, "priority", "y", "", "Issue priority")
 	cmd.Flags().StringSliceVarP(&labels, "label", "l", nil, "Label (prefix - to remove, repeatable)")
 	cmd.Flags().StringSliceVarP(&components, "component", "C", nil, "Component (prefix - to remove, repeatable)")
