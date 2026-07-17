@@ -2,6 +2,7 @@ package cmdutil
 
 import (
 	"fmt"
+	"io"
 	"os"
 
 	"AndersSpringborg/jira-cli/internal/auth"
@@ -13,7 +14,9 @@ import (
 )
 
 type Factory struct {
-	Profile string
+	Profile     string
+	Debug       bool
+	DebugWriter func() io.Writer
 }
 
 func (f *Factory) LoadConfig() (*config.Config, error) {
@@ -124,7 +127,18 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		timeout = profile.TimeoutSeconds
 	}
 
-	return jira.NewClient(baseURL, email, token, authType, timeout)
+	client, err := jira.NewClient(baseURL, email, token, authType, timeout)
+	if err != nil {
+		return nil, err
+	}
+	if f.Debug {
+		writer := io.Writer(os.Stderr)
+		if f.DebugWriter != nil {
+			writer = f.DebugWriter()
+		}
+		client.EnableDebug(writer)
+	}
+	return client, nil
 }
 
 func notLoggedInError(profile, reason string) error {

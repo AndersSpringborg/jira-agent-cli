@@ -30,6 +30,7 @@ type Client struct {
 	token      string
 	authType   string // "basic" or "pat"/"bearer"
 	strategy   Strategy
+	debug      io.Writer
 }
 
 // NewClient creates a new Jira client.
@@ -61,6 +62,12 @@ func NewClient(baseURL, email, token, authType string, timeout float64) (*Client
 			Timeout:   time.Duration(timeout) * time.Second,
 		},
 	}, nil
+}
+
+// EnableDebug writes raw HTTP responses to w while preserving response bodies
+// for normal decoding. Authentication request headers are never included.
+func (c *Client) EnableDebug(w io.Writer) {
+	c.debug = w
 }
 
 // --- User / Auth ---
@@ -583,7 +590,57 @@ func (c *Client) doRequest(method, path string, body []byte) (*http.Response, er
 		}
 	}
 
-	return c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	c.writeDebugResponse(req, resp)
+	return resp, nil
+}
+
+func (c *Client) writeDebugResponse(req *http.Request, resp *http.Response) {
+	if c.debug == nil {
+		return
+	}
+
+	originalBody := resp.Body
+	body, readErr := io.ReadAll(originalBody)
+	if readErr == nil {
+		resp.Body = io.NopCloser(bytes.NewReader(body))
+	} else {
+		resp.Body = &replayReadCloser{
+			Reader: io.MultiReader(bytes.NewReader(body), originalBody),
+			Closer: originalBody,
+		}
+	}
+
+	headers := resp.Header.Clone()
+	for name := range headers {
+		if strings.EqualFold(name, "Set-Cookie") {
+			headers[name] = []string{"[REDACTED]"}
+		}
+	}
+
+	var debug bytes.Buffer
+	fmt.Fprintln(&debug, "--- jira debug response ---")
+	fmt.Fprintf(&debug, "%s %s\n", req.Method, req.URL.String())
+	fmt.Fprintf(&debug, "%s %s\n", resp.Proto, resp.Status)
+	_ = headers.Write(&debug)
+	fmt.Fprintln(&debug)
+	_, _ = debug.Write(body)
+	if len(body) == 0 || body[len(body)-1] != '\n' {
+		fmt.Fprintln(&debug)
+	}
+	if readErr != nil {
+		fmt.Fprintf(&debug, "[debug: reading response body failed: %v]\n", readErr)
+	}
+	fmt.Fprintln(&debug, "--- end jira debug response ---")
+	_, _ = c.debug.Write(debug.Bytes())
+}
+
+type replayReadCloser struct {
+	io.Reader
+	io.Closer
 }
 
 func (c *Client) formatError(resp *http.Response) error {

@@ -106,6 +106,17 @@ jira issue graph-pretty                # visual dependency check for humans
 
 Set a persistent default on a named context with `jira context set work --display markdown`; `--format` always overrides it.
 
+## Debugging Jira responses
+
+Use the global `--debug` flag to print the raw Jira HTTP response to `stderr` while keeping normal command output on `stdout`:
+
+```bash
+jira ping --debug 2>jira-debug.log
+jira issue view PROJ-123 --debug 2>jira-debug.log
+```
+
+The debug log includes the request method and URL, response status, response headers, and unparsed response body. This is useful when an on-prem proxy or login page returns HTML and the command fails with an error such as `invalid character '<'`. Authentication request headers are never printed, and `Set-Cookie` response headers are redacted. Response bodies can still contain sensitive Jira data, so review the file before sharing it.
+
 ## Writing to Jira
 
 Every mutation is a single command with explicit flags, so the transcript line is exactly what changed. Write commands print the result as JSON and exit non-zero on failure, so you can chain them with `&&` and check the exit code.

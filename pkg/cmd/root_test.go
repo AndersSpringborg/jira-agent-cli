@@ -2,6 +2,9 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -24,6 +27,31 @@ func TestExecutePrintsFailingCommandHelpOnError(t *testing.T) {
 	assert.Contains(t, stderr.String(), "Usage:")
 	assert.Contains(t, stderr.String(), "jira issue view <issue-key>")
 	assert.Contains(t, stderr.String(), "--comments")
+}
+
+func TestDebugFlagWritesJiraResponseToStderr(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/2/myself", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"accountId": "user-123"})
+	}))
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("JIRA_BASE_URL", server.URL)
+	t.Setenv("JIRA_TOKEN", "secret-token")
+	t.Setenv("JIRA_AUTH_TYPE", "pat")
+
+	root := NewRootCmd("test", "today")
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"ping", "--debug"})
+
+	require.NoError(t, root.Execute())
+	assert.Contains(t, stderr.String(), "--- jira debug response ---")
+	assert.Contains(t, stderr.String(), "GET "+server.URL+"/rest/api/2/myself")
+	assert.Contains(t, stderr.String(), `{"accountId":"user-123"}`)
+	assert.NotContains(t, stderr.String(), "secret-token")
 }
 
 func TestNamedContextsRetainProjectAndProfileWhenSwitched(t *testing.T) {
