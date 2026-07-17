@@ -70,6 +70,7 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Current user (display name)       | `jira me` (use `--raw` for full JSON)                         |
 | My activity for a day             | `jira mine audit [--date YYYY-MM-DD]` (also `jira me audit`)   |
 | Connectivity check                | `jira ping`                                                   |
+| Update the CLI                    | `jira update` (uses npm for npm installations, GitHub otherwise) |
 | Open in browser                   | `jira open PROJ-123`                                          |
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
 | Anything with no command above    | `jira api <path>` — raw REST passthrough (`-X`, `-d`, `-H`)    |
