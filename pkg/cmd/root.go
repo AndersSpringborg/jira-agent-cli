@@ -68,10 +68,12 @@ Examples:
 	}
 
 	cmd.SetVersionTemplate("jira version " + version + " (built " + date + ")\n")
+	f.DebugWriter = cmd.ErrOrStderr
 
 	// Global flags
 	cmd.PersistentFlags().StringVar(&f.Profile, "profile", "", "Config profile to use (default: from config or 'default')")
 	cmd.PersistentFlags().String("format", "json", "Output format: json, markdown")
+	cmd.PersistentFlags().BoolVar(&f.Debug, "debug", false, "Print raw Jira HTTP responses to stderr")
 
 	// Register command groups
 	cmd.AddCommand(auth.NewCmd(f))

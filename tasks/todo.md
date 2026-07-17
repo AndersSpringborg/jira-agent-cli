@@ -1,3 +1,23 @@
+# HTTP debug mode
+
+## Implementation plan
+
+- [x] Add a failing client test proving debug mode prints the raw Jira HTTP response without consuming it.
+- [x] Add a global `--debug` flag and pass its stderr writer into every loaded Jira client.
+- [x] Emit method, URL, status, response headers, and response body with clear framing; redact cookie headers.
+- [x] Document how to reproduce an on-prem HTML response safely.
+- [x] Run formatting, focused/full tests, build, lint, and `git diff --check`.
+- [x] Review the final diff and record verification results here.
+
+## Review
+
+- Added global `--debug` support for all commands that load the Jira HTTP client.
+- Debug responses are framed on `stderr` and include method, URL, HTTP status, headers, and the unparsed body; normal response decoding still receives the same body.
+- Authorization request headers are never emitted, and response `Set-Cookie` values are redacted. Documentation warns that Jira response bodies may still contain sensitive data.
+- Tests reproduce the on-prem failure mode with a successful HTML response, verify the original `invalid character '<'` decode failure remains, and cover end-to-end Cobra/factory stderr wiring.
+- Verification passed: `go test ./...`, `go build -o /tmp/jira-cli-debug ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
+- A fresh-context reviewer was attempted but timed out without producing findings; parent-side review found no additional changes required.
+
 # Issue dependency commands
 
 ## graph-pretty full-layout correction

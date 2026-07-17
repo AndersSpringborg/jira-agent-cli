@@ -1,6 +1,7 @@
 package jira_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -41,6 +42,32 @@ func TestNewClient(t *testing.T) {
 		_, err := jira.NewClient("", "user@example.com", "token", "basic", 10)
 		assert.Error(t, err)
 	})
+}
+
+func TestDebugResponseShowsRawHTMLWithoutExposingCookies(t *testing.T) {
+	server, client := newServerTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Header().Set("Set-Cookie", "JSESSIONID=secret")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("<html><title>Login required</title></html>"))
+	})
+	defer server.Close()
+
+	var debug bytes.Buffer
+	client.EnableDebug(&debug)
+
+	_, err := client.GetMyself()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid character '<'")
+	assert.Contains(t, debug.String(), "--- jira debug response ---")
+	assert.Contains(t, debug.String(), "GET "+server.URL+"/rest/api/2/myself")
+	assert.Contains(t, debug.String(), "200 OK")
+	assert.Contains(t, debug.String(), "Content-Type: text/html")
+	assert.Contains(t, debug.String(), "Set-Cookie: [REDACTED]")
+	assert.Contains(t, debug.String(), "<html><title>Login required</title></html>")
+	assert.Contains(t, debug.String(), "--- end jira debug response ---")
+	assert.NotContains(t, debug.String(), "JSESSIONID=secret")
+	assert.NotContains(t, debug.String(), "test-token")
 }
 
 func TestGetMyself(t *testing.T) {
