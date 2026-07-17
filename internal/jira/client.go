@@ -557,7 +557,33 @@ func (c *Client) delete(path string) error {
 	return nil
 }
 
+// Raw sends an arbitrary request to the Jira instance and returns the raw
+// response. path is appended to the base URL verbatim (query string included),
+// so any REST resource is reachable — including ones this CLI has no
+// predefined command for. Extra headers override the defaults.
+func (c *Client) Raw(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
+	return c.do(method, path, body, headers)
+}
+
+// APIPath prefixes a version-relative resource (e.g. "issue/PROJ-1") with the
+// platform REST base path for this client's flavor: /rest/api/3 on Cloud,
+// /rest/api/2 on Server/Data Center.
+func (c *Client) APIPath(resource string) string {
+	return c.strategy.APIPath(resource)
+}
+
+// IsCloud reports whether the client talks to Jira Cloud (REST API v3)
+// rather than Jira Server/Data Center (REST API v2).
+func (c *Client) IsCloud() bool {
+	_, ok := c.strategy.(cloudStrategy)
+	return ok
+}
+
 func (c *Client) doRequest(method, path string, body []byte) (*http.Response, error) {
+	return c.do(method, path, body, nil)
+}
+
+func (c *Client) do(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
 	url := c.BaseURL + path
 
 	var bodyReader io.Reader
@@ -573,6 +599,9 @@ func (c *Client) doRequest(method, path string, body []byte) (*http.Response, er
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range headers {
+		req.Header.Set(k, v)
 	}
 
 	// Set auth

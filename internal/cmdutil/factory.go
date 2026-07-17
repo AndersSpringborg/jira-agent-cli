@@ -59,11 +59,21 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 //  2. context.Display (persisted via `jira context set NAME --display markdown`)
 //  3. "json" (hardcoded default)
 func (f *Factory) DisplayDriver(cmd *cobra.Command) output.DisplayDriver {
+	return output.NewDriverWithWriter(f.resolveFormat(cmd), os.Stdout)
+}
+
+// DisplayDriverTo behaves like DisplayDriver but writes to w instead of
+// stdout. Useful for commands that route output through cmd.OutOrStdout().
+func (f *Factory) DisplayDriverTo(cmd *cobra.Command, w io.Writer) output.DisplayDriver {
+	return output.NewDriverWithWriter(f.resolveFormat(cmd), w)
+}
+
+func (f *Factory) resolveFormat(cmd *cobra.Command) output.Format {
 	// Check if --format was explicitly passed on the command line.
 	if cmd != nil {
 		if flag := cmd.Root().PersistentFlags().Lookup("format"); flag != nil && flag.Changed {
 			if format, err := output.ParseFormat(flag.Value.String()); err == nil {
-				return output.NewDriver(format)
+				return format
 			}
 		}
 	}
@@ -72,12 +82,12 @@ func (f *Factory) DisplayDriver(cmd *cobra.Command) output.DisplayDriver {
 	profile, err := f.LoadProfile()
 	if err == nil && profile.Context != nil && profile.Context.Display != "" {
 		if format, err := output.ParseFormat(profile.Context.Display); err == nil {
-			return output.NewDriver(format)
+			return format
 		}
 	}
 
 	// Default to JSON.
-	return output.NewDriver(output.FormatJSON)
+	return output.FormatJSON
 }
 
 func (f *Factory) LoadClient() (*jira.Client, error) {

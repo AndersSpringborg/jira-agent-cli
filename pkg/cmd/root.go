@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
+	"AndersSpringborg/jira-cli/pkg/cmd/api"
 	"AndersSpringborg/jira-cli/pkg/cmd/auth"
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
 	"AndersSpringborg/jira-cli/pkg/cmd/configcmd"
@@ -76,6 +77,7 @@ Examples:
 	cmd.PersistentFlags().BoolVar(&f.Debug, "debug", false, "Print raw Jira HTTP responses to stderr")
 
 	// Register command groups
+	cmd.AddCommand(api.NewCmd(f))
 	cmd.AddCommand(auth.NewCmd(f))
 	cmd.AddCommand(configcmd.NewCmd(f))
 	cmd.AddCommand(cmdcontext.NewCmd(f))
