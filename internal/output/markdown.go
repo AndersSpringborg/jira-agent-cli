@@ -61,30 +61,16 @@ func (d *MarkdownDriver) List(title string, columns []string, rows []map[string]
 		return err
 	}
 
-	// Markdown table header
-	if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(columns, " | ")); err != nil {
-		return err
-	}
-	seps := make([]string, len(columns))
-	for i := range seps {
-		seps[i] = "---"
-	}
-	if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(seps, " | ")); err != nil {
-		return err
-	}
-
-	// Markdown table rows
+	tableRows := make([][]string, 0, len(rows))
 	for _, row := range rows {
-		vals := make([]string, len(columns))
+		values := make([]string, len(columns))
 		for i, col := range columns {
-			vals[i] = FormatValue(row[col])
+			values[i] = FormatValue(row[col])
 		}
-		if _, err := fmt.Fprintf(d.w, "| %s |\n", strings.Join(vals, " | ")); err != nil {
-			return err
-		}
+		tableRows = append(tableRows, values)
 	}
 
-	return nil
+	return renderMarkdownTable(d.w, columns, tableRows)
 }
 
 func (d *MarkdownDriver) Raw(data any) error {
@@ -104,6 +90,50 @@ func (d *MarkdownDriver) Error(err error) error {
 	return werr
 }
 
+func renderMarkdownTable(w io.Writer, headers []string, rows [][]string) error {
+	widths := make([]int, len(headers))
+	for i, header := range headers {
+		widths[i] = max(3, len([]rune(header)))
+	}
+	for _, row := range rows {
+		for i := range headers {
+			if i < len(row) {
+				widths[i] = max(widths[i], len([]rune(row[i])))
+			}
+		}
+	}
+
+	writeRow := func(values []string) error {
+		padded := make([]string, len(headers))
+		for i := range headers {
+			value := ""
+			if i < len(values) {
+				value = values[i]
+			}
+			padded[i] = value + strings.Repeat(" ", widths[i]-len([]rune(value)))
+		}
+		_, err := fmt.Fprintf(w, "| %s |\n", strings.Join(padded, " | "))
+		return err
+	}
+
+	if err := writeRow(headers); err != nil {
+		return err
+	}
+	separators := make([]string, len(headers))
+	for i, width := range widths {
+		separators[i] = strings.Repeat("-", width)
+	}
+	if err := writeRow(separators); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := writeRow(row); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // renderFieldTable renders the top-level scalar fields of an item
 // as a markdown key-value table.
 func (d *MarkdownDriver) renderFieldTable(data map[string]any) error {
@@ -114,18 +144,11 @@ func (d *MarkdownDriver) renderFieldTable(data map[string]any) error {
 		return nil
 	}
 
-	if _, err := fmt.Fprintf(d.w, "| Field | Value |\n"); err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(d.w, "| --- | --- |\n"); err != nil {
-		return err
-	}
+	rows := make([][]string, 0, len(fields))
 	for _, kv := range fields {
-		if _, err := fmt.Fprintf(d.w, "| %s | %s |\n", kv[0], kv[1]); err != nil {
-			return err
-		}
+		rows = append(rows, []string{kv[0], kv[1]})
 	}
-	return nil
+	return renderMarkdownTable(d.w, []string{"Field", "Value"}, rows)
 }
 
 // renderComments renders issue comments as markdown sections.

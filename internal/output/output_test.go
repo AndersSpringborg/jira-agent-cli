@@ -130,13 +130,13 @@ func TestMarkdownDriver_Item_Issue(t *testing.T) {
 	assert.Contains(t, out, "## PROJ-123: Fix login redirect bug")
 
 	// Should have a field table
-	assert.Contains(t, out, "| Field | Value |")
-	assert.Contains(t, out, "| Key | PROJ-123 |")
-	assert.Contains(t, out, "| Status | In Progress |")
-	assert.Contains(t, out, "| Assignee | Jane Smith |")
-	assert.Contains(t, out, "| Priority | High |")
-	assert.Contains(t, out, "| Type | Bug |")
-	assert.Contains(t, out, "| Reporter | John Doe |")
+	assert.Contains(t, out, "| Field    | Value")
+	assert.Contains(t, out, "| Key      | PROJ-123")
+	assert.Contains(t, out, "| Status   | In Progress")
+	assert.Contains(t, out, "| Assignee | Jane Smith")
+	assert.Contains(t, out, "| Priority | High")
+	assert.Contains(t, out, "| Type     | Bug")
+	assert.Contains(t, out, "| Reporter | John Doe")
 
 	// Should have description section
 	assert.Contains(t, out, "### Description")
@@ -192,10 +192,14 @@ func TestMarkdownDriver_Item_SimpleObject(t *testing.T) {
 	err := d.Item("Sprint", data)
 	require.NoError(t, err)
 
-	out := buf.String()
-	assert.Contains(t, out, "## Sprint")
-	assert.Contains(t, out, "| Name | Sprint 1 |")
-	assert.Contains(t, out, "| State | active |")
+	assert.Equal(t, `## Sprint
+
+| Field | Value    |
+| ----- | -------- |
+| Name  | Sprint 1 |
+| ID    | 42       |
+| State | active   |
+`, buf.String())
 }
 
 func TestMarkdownDriver_List(t *testing.T) {
@@ -210,13 +214,13 @@ func TestMarkdownDriver_List(t *testing.T) {
 	err := d.List("Issues", []string{"key", "summary", "status"}, rows)
 	require.NoError(t, err)
 
-	out := buf.String()
+	assert.Equal(t, `## Issues (2)
 
-	assert.Contains(t, out, "## Issues (2)")
-	assert.Contains(t, out, "| key | summary | status |")
-	assert.Contains(t, out, "| --- | --- | --- |")
-	assert.Contains(t, out, "| PROJ-1 | First issue | Done |")
-	assert.Contains(t, out, "| PROJ-2 | Second issue | To Do |")
+| key    | summary      | status |
+| ------ | ------------ | ------ |
+| PROJ-1 | First issue  | Done   |
+| PROJ-2 | Second issue | To Do  |
+`, buf.String())
 }
 
 func TestMarkdownDriver_List_Empty(t *testing.T) {
