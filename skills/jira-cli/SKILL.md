@@ -72,7 +72,11 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Connectivity check                | `jira ping`                                                   |
 | Open in browser                   | `jira open PROJ-123`                                          |
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
+| Anything with no command above    | `jira api <path>` — raw REST passthrough (`-X`, `-d`, `-H`)    |
+| Discover API endpoints            | `jira api --list [filter...]` (offline, no auth needed)        |
 | Context defaults                  | `jira context set NAME --project PROJ --profile PROFILE`; switch with `jira context use NAME`, inspect with `jira context list` |
+
+When no predefined command fits, use `jira api`: it sends a raw request with the profile's auth and prints the response verbatim. Full paths (starting with `/`) pass through unchanged; shorthand paths like `issue/PROJ-1` get the platform prefix for the instance flavor (`/rest/api/3` on Cloud, `/rest/api/2` on Server/Data Center). `-d` implies POST (`@file` and `-` for stdin work); find the right endpoint first with `jira api --list <terms>`, which searches an embedded catalog of the official API for the profile's flavor. Errors print Jira's error body and exit non-zero.
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
 

@@ -697,3 +697,55 @@ func TestBearerAuth(t *testing.T) {
 	_, err := client.GetMyself()
 	assert.NoError(t, err)
 }
+
+func TestRawSendsArbitraryRequest(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		assert.Equal(t, "/rest/agile/1.0/sprint/7/issue", r.URL.Path)
+		assert.Equal(t, "opt-in", r.Header.Get("X-ExperimentalApi"))
+		assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		user, pass, ok := r.BasicAuth()
+		require.True(t, ok)
+		assert.Equal(t, "test@example.com", user)
+		assert.Equal(t, "test-token", pass)
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, []any{"PROJ-1"}, body["issues"])
+
+		w.WriteHeader(204)
+	})
+	defer server.Close()
+
+	resp, err := client.Raw("POST", "/rest/agile/1.0/sprint/7/issue",
+		[]byte(`{"issues":["PROJ-1"]}`), map[string]string{"X-ExperimentalApi": "opt-in"})
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, 204, resp.StatusCode)
+}
+
+func TestRawPreservesQueryString(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/issue/PROJ-1", r.URL.Path)
+		assert.Equal(t, "changelog,renderedFields", r.URL.Query().Get("expand"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"key":"PROJ-1"}`))
+	})
+	defer server.Close()
+
+	resp, err := client.Raw("GET", "/rest/api/3/issue/PROJ-1?expand=changelog,renderedFields", nil, nil)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, 200, resp.StatusCode)
+}
+
+func TestAPIPathDeducedFromProfileFlavor(t *testing.T) {
+	cloud, _ := jira.NewClient("https://org.atlassian.net", "a@b.c", "tok", "basic", 5)
+	assert.Equal(t, "/rest/api/3/issue/PROJ-1", cloud.APIPath("issue/PROJ-1"))
+	assert.True(t, cloud.IsCloud())
+
+	onprem, _ := jira.NewClient("https://jira.example.com", "", "tok", "pat", 5)
+	assert.Equal(t, "/rest/api/2/issue/PROJ-1", onprem.APIPath("issue/PROJ-1"))
+	assert.False(t, onprem.IsCloud())
+}
