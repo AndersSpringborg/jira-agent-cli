@@ -13,6 +13,8 @@ import (
 const DefaultProfile = "default"
 
 type Context struct {
+	Name      string   `yaml:"name,omitempty"`
+	Profile   string   `yaml:"profile,omitempty"`
 	Project   string   `yaml:"project,omitempty"`
 	BoardID   int      `yaml:"board_id,omitempty"`
 	Epic      string   `yaml:"epic,omitempty"`
@@ -27,7 +29,7 @@ func (c *Context) IsEmpty() bool {
 	if c == nil {
 		return true
 	}
-	return c.Project == "" && c.BoardID == 0 && c.Epic == "" &&
+	return c.Profile == "" && c.Project == "" && c.BoardID == 0 && c.Epic == "" &&
 		len(c.Labels) == 0 && c.IssueType == "" && c.Status == "" && c.Assignee == "" &&
 		c.Display == ""
 }
@@ -50,7 +52,9 @@ func DetectAuthType(baseURL string) string {
 
 type Config struct {
 	DefaultProfile string              `yaml:"default_profile"`
+	ActiveContext  string              `yaml:"active_context,omitempty"`
 	Profiles       map[string]*Profile `yaml:"profiles"`
+	Contexts       []*Context          `yaml:"contexts,omitempty"`
 }
 
 func configDir() (string, error) {
@@ -165,6 +169,57 @@ func ListProfiles(cfg *Config) []string {
 	names := make([]string, 0, len(cfg.Profiles))
 	for name := range cfg.Profiles {
 		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
+func GetContext(cfg *Config, name string) *Context {
+	if cfg == nil {
+		return nil
+	}
+	for _, ctx := range cfg.Contexts {
+		if ctx != nil && ctx.Name == name {
+			return ctx
+		}
+	}
+	return nil
+}
+
+func GetActiveContext(cfg *Config) *Context {
+	if cfg == nil || cfg.ActiveContext == "" {
+		return nil
+	}
+	return GetContext(cfg, cfg.ActiveContext)
+}
+
+func UpsertContext(cfg *Config, name string, ctx *Context) {
+	ctx.Name = name
+	for i, existing := range cfg.Contexts {
+		if existing != nil && existing.Name == name {
+			cfg.Contexts[i] = ctx
+			return
+		}
+	}
+	cfg.Contexts = append(cfg.Contexts, ctx)
+}
+
+func DeleteContext(cfg *Config, name string) bool {
+	for i, ctx := range cfg.Contexts {
+		if ctx != nil && ctx.Name == name {
+			cfg.Contexts = append(cfg.Contexts[:i], cfg.Contexts[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func ListContexts(cfg *Config) []string {
+	names := make([]string, 0, len(cfg.Contexts))
+	for _, ctx := range cfg.Contexts {
+		if ctx != nil {
+			names = append(names, ctx.Name)
+		}
 	}
 	sort.Strings(names)
 	return names

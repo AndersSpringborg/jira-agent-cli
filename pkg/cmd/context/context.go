@@ -13,6 +13,8 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	}
 
 	cmd.AddCommand(newSetCmd(f))
+	cmd.AddCommand(newUseCmd(f))
+	cmd.AddCommand(newListCmd(f))
 	cmd.AddCommand(newShowCmd(f))
 	cmd.AddCommand(newClearCmd(f))
 

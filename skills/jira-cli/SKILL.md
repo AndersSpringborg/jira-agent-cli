@@ -35,8 +35,8 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 2. **JSON is the default output.** Parse it directly. Use `--format markdown` only when rendering for the user.
 3. **Never invent keys.** Resolve project keys via `jira project list`, issue keys via `jira issue list` / `jira search`, account IDs via `jira user search`.
 4. **JQL values use double quotes:** `status = "In Progress"`, `project = "PROJ"`.
-5. **Set context once** to stop repeating flags: `jira context set --project PROJ --board-id 42`.
-6. **`--profile NAME`** overrides the active profile for a single command.
+5. **Set and activate a named context once** to stop repeating flags: `jira context set work --project PROJ --board-id 42 --profile default && jira context use work`.
+6. **`--profile NAME`** overrides the active context's authentication profile for a single command.
 7. **`jira auth status` is local-only** (keychain check). Use `jira ping` or `jira auth whoami` to confirm the token actually works.
 8. **Custom fields use raw IDs:** `--field customfield_10016=5`. Repeatable.
 9. **Bodies are Markdown.** `--body`/`-b` (and comment text) take CommonMark - headings, lists, fenced code blocks, links, bold/italic. The CLI converts it to ADF on Cloud and wiki markup on Server/DC. Write Markdown, not raw `{code}`/`h3.` wiki syntax.
@@ -72,7 +72,7 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Connectivity check                | `jira ping`                                                   |
 | Open in browser                   | `jira open PROJ-123`                                          |
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
-| Context defaults                  | `jira context set --project PROJ` (also `--board-id`, `--epic`, `--label`, `--issue-type`, `--status`, `--assignee`, `--display`) |
+| Context defaults                  | `jira context set NAME --project PROJ --profile PROFILE`; switch with `jira context use NAME`, inspect with `jira context list` |
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
 
@@ -103,7 +103,7 @@ Component 1
 | `--format json`     | default; parse programmatically       |
 | `--format markdown` | structured display for the user       |
 
-Persistent default: `jira context set --display markdown`. The `--format` flag always wins.
+Persistent default: `jira context set NAME --display markdown`. The `--format` flag always wins.
 
 ## When to load a reference file
 

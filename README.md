@@ -10,7 +10,7 @@ jira search jql "assignee = currentUser() AND status != Done" | jq -r '.[].key'
 
 - **JSON by default, clean streams.** Results go to `stdout`, all diagnostics to `stderr`, and failures return a non-zero exit code. `jq`, `rg`, and `wc` work without choking on error blobs, and scripts check `$?` instead of parsing strings.
 - **Auth stays out of band.** You log in once; the token lives in the OS keychain and is never written to disk or exposed to an agent. Execution inherits an already-authenticated environment.
-- **Inspectable, scoped state.** `jira context set --project PROJ` pins defaults on disk so you don't repeat `--project` on every call — and you can read back exactly what scope you're operating in.
+- **Inspectable, scoped state.** `jira context set work --project PROJ --profile default` saves project and authentication defaults together; `jira context use work` switches scope explicitly.
 - **Lean output.** Project only the fields you need with repeatable `-F customfield_x` flags, keeping responses (and token usage) small.
 - **No daemon, no custom protocol.** It's a plain binary. Every action is one replayable command line — debug by copying it from your shell history and running it again.
 - **Server-side audit.** `jira me audit --date YYYY-MM-DD` reconstructs what actually changed on a given day from Jira's own changelog, independent of local state.
@@ -76,10 +76,10 @@ The token is stored in the OS keychain — never written to disk.
 ### 2. Verify and set defaults
 
 ```bash
-jira ping                              # check connectivity
-jira context set --project PROJ        # default project for subsequent commands
-jira context set --board-id 42
-jira context set --display markdown    # human-readable output everywhere (json is the default)
+jira ping
+jira context set work --project PROJ --board-id 42 --profile default
+jira context use work                  # switch project and authentication profile together
+jira context list                      # inspect all saved contexts
 ```
 
 A per-command `--format` flag always overrides the context default. See [Output Formats](#output-formats).
@@ -104,7 +104,7 @@ jira issue graph-pretty                # visual dependency check for humans
 | `--format json`     | Machine-readable JSON (default)          |
 | `--format markdown` | Structured markdown, fewer tokens for LLMs |
 
-Set a persistent default with `jira context set --display markdown`; `--format` always overrides it.
+Set a persistent default on a named context with `jira context set work --display markdown`; `--format` always overrides it.
 
 ## Writing to Jira
 
@@ -234,7 +234,7 @@ These override config file values and are useful in CI/automation:
 Authentication and execution are decoupled. A human or CI process runs `jira auth login` once; the token is stored in the OS keychain, never on disk. An agent never sees, requests, or routes the credential — it inherits an already-authenticated environment, and access is revoked system-side without any model trust.
 
 ### Inspectable state and blast-radius control
-`jira context set --project PROJ --board-id 42` writes default parameters to disk, restricting the default operating scope without an agent having to append `--project` to every call. The context is explicit, inspectable state; breaking scope requires an explicit per-command override (e.g. `--profile`).
+`jira context set work --project PROJ --board-id 42 --profile default` writes project filters and the authentication profile to a named context. `jira context use work` makes that context active, while `jira context list` keeps every saved scope inspectable. An explicit per-command `--profile` still overrides the context's authentication profile.
 
 ### Built for the Unix pipe
 The CLI leans on standard tools (`jq`, `rg`, `grep`, `wc`) instead of a bespoke processing engine. `stdout` carries only the result; diagnostics, warnings, and errors go to `stderr`, so pipelines never choke on error output. Failed calls return a non-zero exit code, so success/failure is read from `$?` rather than parsed from text.

@@ -21,7 +21,13 @@ func (f *Factory) LoadConfig() (*config.Config, error) {
 }
 
 func (f *Factory) ResolveProfileName(cfg *config.Config) string {
-	return config.ResolveProfileName(cfg, f.Profile)
+	if f.Profile != "" || os.Getenv("JIRABOT_PROFILE") != "" {
+		return config.ResolveProfileName(cfg, f.Profile)
+	}
+	if ctx := config.GetActiveContext(cfg); ctx != nil && ctx.Profile != "" {
+		return ctx.Profile
+	}
+	return config.ResolveProfileName(cfg, "")
 }
 
 func (f *Factory) LoadProfile() (*config.Profile, error) {
@@ -29,10 +35,16 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
-	profileName := config.ResolveProfileName(cfg, f.Profile)
+	profileName := f.ResolveProfileName(cfg)
 	profile := config.GetProfile(cfg, profileName)
 	if profile == nil {
-		return &config.Profile{Name: profileName}, nil
+		profile = &config.Profile{Name: profileName}
+	} else {
+		profileCopy := *profile
+		profile = &profileCopy
+	}
+	if ctx := config.GetActiveContext(cfg); ctx != nil {
+		profile.Context = ctx
 	}
 	return profile, nil
 }
@@ -41,7 +53,7 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 //
 // Resolution order:
 //  1. --format flag (if explicitly set on the command line)
-//  2. context.Display (persisted via `jira context set --display markdown`)
+//  2. context.Display (persisted via `jira context set NAME --display markdown`)
 //  3. "json" (hardcoded default)
 func (f *Factory) DisplayDriver(cmd *cobra.Command) output.DisplayDriver {
 	// Check if --format was explicitly passed on the command line.
@@ -71,7 +83,7 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
-	profileName := config.ResolveProfileName(cfg, f.Profile)
+	profileName := f.ResolveProfileName(cfg)
 	profile := config.GetProfile(cfg, profileName)
 
 	baseURL := os.Getenv("JIRA_BASE_URL")

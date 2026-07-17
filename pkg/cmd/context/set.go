@@ -1,6 +1,8 @@
 package context
 
 import (
+	"fmt"
+
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 	"AndersSpringborg/jira-cli/internal/output"
@@ -21,59 +23,64 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "set",
-		Short: "Set context filters for the active profile",
+		Use:   "set <name>",
+		Short: "Create or update a named context",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := f.LoadConfig()
 			if err != nil {
 				return err
 			}
 
-			profileName := f.ResolveProfileName(cfg)
-			profile := config.GetProfile(cfg, profileName)
-			if profile == nil {
-				profile = &config.Profile{Name: profileName}
+			name := args[0]
+			ctx := config.GetContext(cfg, name)
+			if ctx == nil {
+				ctx = &config.Context{}
 			}
 
-			if profile.Context == nil {
-				profile.Context = &config.Context{}
+			profileChanged := cmd.Flags().Changed("profile")
+			if ctx.Profile == "" || profileChanged {
+				ctx.Profile = f.ResolveProfileName(cfg)
+			}
+			if config.GetProfile(cfg, ctx.Profile) == nil {
+				return fmt.Errorf("profile '%s' not found", ctx.Profile)
 			}
 
 			if cmd.Flags().Changed("project") {
-				profile.Context.Project = project
+				ctx.Project = project
 			}
 			if cmd.Flags().Changed("board-id") {
-				profile.Context.BoardID = boardID
+				ctx.BoardID = boardID
 			}
 			if cmd.Flags().Changed("epic") {
-				profile.Context.Epic = epic
+				ctx.Epic = epic
 			}
 			if cmd.Flags().Changed("label") {
-				profile.Context.Labels = labels
+				ctx.Labels = labels
 			}
 			if cmd.Flags().Changed("issue-type") {
-				profile.Context.IssueType = issueType
+				ctx.IssueType = issueType
 			}
 			if cmd.Flags().Changed("status") {
-				profile.Context.Status = status
+				ctx.Status = status
 			}
 			if cmd.Flags().Changed("assignee") {
-				profile.Context.Assignee = assignee
+				ctx.Assignee = assignee
 			}
 			if cmd.Flags().Changed("display") {
 				if _, err := output.ParseFormat(display); err != nil {
 					return err
 				}
-				profile.Context.Display = display
+				ctx.Display = display
 			}
 
-			config.UpsertProfile(cfg, profile)
+			config.UpsertContext(cfg, name, ctx)
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
 
 			driver := f.DisplayDriver(cmd)
-			return driver.Message("Context updated for profile '%s'.", profileName)
+			return driver.Message("Context '%s' updated.", name)
 		},
 	}
 

@@ -1,6 +1,8 @@
 package context
 
 import (
+	"fmt"
+
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -20,65 +22,69 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "clear",
-		Short: "Clear context filters (all or specific)",
+		Use:   "clear [name]",
+		Short: "Delete a named context or clear selected fields",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := f.LoadConfig()
 			if err != nil {
 				return err
 			}
 
-			profileName := f.ResolveProfileName(cfg)
-			profile := config.GetProfile(cfg, profileName)
-			driver := f.DisplayDriver(cmd)
-
-			if profile == nil || profile.Context == nil {
-				return driver.Message("No context to clear for profile '%s'.", profileName)
+			name := cfg.ActiveContext
+			if len(args) == 1 {
+				name = args[0]
+			}
+			if name == "" {
+				return fmt.Errorf("no active context")
+			}
+			ctx := config.GetContext(cfg, name)
+			if ctx == nil {
+				return fmt.Errorf("context '%s' not found", name)
 			}
 
 			noSpecific := !project && !boardID && !epic && !labels && !issueType && !status && !assignee && !display
-
 			if noSpecific {
-				profile.Context = nil
+				config.DeleteContext(cfg, name)
+				if cfg.ActiveContext == name {
+					cfg.ActiveContext = ""
+				}
 			} else {
 				if project {
-					profile.Context.Project = ""
+					ctx.Project = ""
 				}
 				if boardID {
-					profile.Context.BoardID = 0
+					ctx.BoardID = 0
 				}
 				if epic {
-					profile.Context.Epic = ""
+					ctx.Epic = ""
 				}
 				if labels {
-					profile.Context.Labels = nil
+					ctx.Labels = nil
 				}
 				if issueType {
-					profile.Context.IssueType = ""
+					ctx.IssueType = ""
 				}
 				if status {
-					profile.Context.Status = ""
+					ctx.Status = ""
 				}
 				if assignee {
-					profile.Context.Assignee = ""
+					ctx.Assignee = ""
 				}
 				if display {
-					profile.Context.Display = ""
-				}
-				if profile.Context.IsEmpty() {
-					profile.Context = nil
+					ctx.Display = ""
 				}
 			}
 
-			config.UpsertProfile(cfg, profile)
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
 
+			driver := f.DisplayDriver(cmd)
 			if noSpecific {
-				return driver.Message("Context cleared for profile '%s'.", profileName)
+				return driver.Message("Context '%s' deleted.", name)
 			}
-			return driver.Message("Context updated for profile '%s'.", profileName)
+			return driver.Message("Context '%s' updated.", name)
 		},
 	}
 

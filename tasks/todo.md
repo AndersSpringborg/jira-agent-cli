@@ -1,7 +1,6 @@
 # Issue dependency commands
 
 ## graph-pretty full-layout correction
-
 - [x] Replace adjacency snapshots with failing top-down full-graph snapshots, including visible branch joins.
 - [x] Build a deterministic layered layout model from the complete graph before rendering.
 - [x] Render continuous top-down branch/join connectors, disconnected components, external/resolved states, and cycle groups.
@@ -72,3 +71,23 @@
 - Cycle groups preserve their internal directed edges; ready, blocked, resolved, external, and cyclic states remain visible through compact markers.
 - Snapshot tests cover chains, branch/join diamonds, disconnected components, resolved external blockers, and cycles. A layout-model test verifies the joined graph before rendering.
 - Verification passed: `go test ./...`, `go build -o bin/jira ./cmd/jira`, `golangci-lint run ./...` (0 issues), and `git diff --check`.
+
+# Named Jira contexts
+
+- [x] Reproduce the profile/project persistence limitation in a command-level test.
+- [x] Add named contexts that persist project filters and authentication profile together.
+- [x] Store contexts as a global YAML list with explicit `name` fields.
+- [x] Verify multiple contexts retain independent settings and can be switched.
+- [x] Run tests, lint, formatting, and a manual smoke test.
+
+## Named context review
+
+```bash
+jira context set cai --project CAI --profile trifork
+jira context use cai
+jira context list
+```
+
+Contexts are stored as a global YAML list with explicit `name`, `profile`, and filter fields. The active context supplies both its filters and authentication profile to subsequent commands. An explicit per-command `--profile` still overrides the context profile.
+
+Validation passed: `go test ./...`, `golangci-lint run ./...` (0 issues), `git diff --check`, and a manual two-context set/use/show/list smoke test.

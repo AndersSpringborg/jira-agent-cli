@@ -352,7 +352,7 @@ func (o *dependencyOptions) jql(ctx *config.Context) (string, error) {
 		}
 	}
 	if o.project == "" {
-		return "", fmt.Errorf("no project specified; use --project or set context with `jira context set --project PROJ`")
+		return "", fmt.Errorf("no project specified; use --project or activate one set with `jira context set NAME --project PROJ`")
 	}
 	parts := []string{fmt.Sprintf("project = %s", o.project)}
 	if o.epic != "" {
