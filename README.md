@@ -34,6 +34,14 @@ npm install -g @888aaen/jira-cli
 
 Installs the `jira` binary for macOS (arm64, x64), Linux (x64, arm64), and Windows (x64).
 
+Update to the latest release with:
+
+```bash
+jira update
+```
+
+When installed through npm, this runs `npm install -g @888aaen/jira-cli@latest`. Direct installations download the matching GitHub release, verify its published checksum, and replace the current binary. A direct installation must be writable; if it was installed as root, run the update with equivalent permissions.
+
 ### Build from source
 
 **Prerequisites:** [Go 1.25+](https://go.dev/dl/)
@@ -178,6 +186,7 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 | `jira mine`    | List issues assigned to you                  |
 | `jira open`    | Open project or issue in browser             |
 | `jira ping`    | Check connectivity to Jira                   |
+| `jira update`  | Install the latest release via npm or GitHub |
 
 Run `jira <command> --help` for details on any command. Failed commands also print the failing command's complete help text to stderr, so agents can recover without a second discovery call.
 
