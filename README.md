@@ -164,6 +164,7 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 
 | Command        | Description                                  |
 |----------------|----------------------------------------------|
+| `jira api`     | Raw access to any Jira REST endpoint; `--list` to discover endpoints |
 | `jira auth`    | Login, logout, status, whoami                |
 | `jira config`  | Manage profiles (init, list, show, set, use, delete) |
 | `jira context` | Set default filters (project, board, labels, etc.)   |
@@ -179,6 +180,33 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 | `jira ping`    | Check connectivity to Jira                   |
 
 Run `jira <command> --help` for details on any command. Failed commands also print the failing command's complete help text to stderr, so agents can recover without a second discovery call.
+
+### Raw API access
+
+`jira api` is the escape hatch when no predefined command covers what you need — raw SQL for Jira. It sends any request with the active profile's authentication and prints the response body verbatim (pipe to `jq`):
+
+```bash
+# GET is the default; full paths pass through verbatim (platform, agile, plugins)
+jira api /rest/agile/1.0/board/42/backlog
+jira api "/rest/api/3/issue/PROJ-1?expand=changelog,renderedFields" | jq .changelog
+
+# shorthand paths get the platform prefix for your instance flavor:
+# /rest/api/3 on Jira Cloud, /rest/api/2 on Jira Server/Data Center
+jira api issue/PROJ-1
+
+# writes: -d implies POST; @file and - (stdin) work too; -X and -H as in curl
+jira api issue -d '{"fields":{...}}'
+echo '{"issues":["PROJ-1"]}' | jira api /rest/agile/1.0/sprint/7/issue -d -
+```
+
+`jira api --list [filter...]` browses the API surface itself — endpoint catalogs generated from Atlassian's official OpenAPI specs are embedded in the binary, so it works offline and without authentication. The catalog matches your instance flavor (Cloud v3 vs Server/DC v2), deduced from the active profile:
+
+```bash
+jira api --list sprint            # every sprint-related endpoint
+jira api --list "POST worklog"    # filter terms match method, path, and description
+```
+
+Failed requests print Jira's error body (that's the useful part) and exit non-zero.
 
 ### Resolving issue dependencies
 
