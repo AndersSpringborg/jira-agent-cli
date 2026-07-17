@@ -44,8 +44,12 @@ try {
 
 // Forward all arguments to the Go binary
 try {
-  const result = execFileSync(binPath, process.argv.slice(2), {
+  execFileSync(binPath, process.argv.slice(2), {
     stdio: "inherit",
+    env: {
+      ...process.env,
+      JIRA_CLI_INSTALL_METHOD: "npm",
+    },
   });
 } catch (err) {
   if (err.status !== undefined) {

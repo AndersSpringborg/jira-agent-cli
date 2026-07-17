@@ -20,6 +20,7 @@ import (
 	"AndersSpringborg/jira-cli/pkg/cmd/project"
 	"AndersSpringborg/jira-cli/pkg/cmd/search"
 	"AndersSpringborg/jira-cli/pkg/cmd/sprint"
+	"AndersSpringborg/jira-cli/pkg/cmd/update"
 	"AndersSpringborg/jira-cli/pkg/cmd/user"
 
 	"github.com/spf13/cobra"
@@ -91,6 +92,7 @@ Examples:
 	cmd.AddCommand(mine.NewCmd(f))
 	cmd.AddCommand(open.NewCmd(f))
 	cmd.AddCommand(ping.NewCmd(f))
+	cmd.AddCommand(update.NewCmd(version))
 	cmd.AddCommand(install.NewCmd(cmd))
 	cmd.AddCommand(feedback.NewCmd(f))
 

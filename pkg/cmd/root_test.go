@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime"
 	"testing"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -14,6 +16,38 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestUpdateCommandIsRegistered(t *testing.T) {
+	root := NewRootCmd("1.0.0", "today")
+	command, _, err := root.Find([]string{"update"})
+	require.NoError(t, err)
+	assert.Equal(t, "update", command.Name())
+	assert.Contains(t, command.Long, "npm installations are upgraded through npm")
+}
+
+func TestUpdateUsesNPMForNPMInstallations(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses a shell script as a fake npm executable")
+	}
+	binDir := t.TempDir()
+	argsFile := filepath.Join(t.TempDir(), "npm-args")
+	npm := filepath.Join(binDir, "npm")
+	require.NoError(t, os.WriteFile(npm, []byte("#!/bin/sh\nprintf '%s\\n' \"$*\" > \"$NPM_ARGS_FILE\"\n"), 0o755))
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("JIRA_CLI_INSTALL_METHOD", "npm")
+	t.Setenv("NPM_ARGS_FILE", argsFile)
+
+	root := NewRootCmd("1.0.0", "today")
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetArgs([]string{"update"})
+	require.NoError(t, root.Execute())
+
+	args, err := os.ReadFile(argsFile)
+	require.NoError(t, err)
+	assert.Equal(t, "install -g @888aaen/jira-cli@latest\n", string(args))
+	assert.JSONEq(t, `{"method":"npm","previousVersion":"1.0.0","updated":true}`, stdout.String())
+}
 
 func TestExecutePrintsFailingCommandHelpOnError(t *testing.T) {
 	root := NewRootCmd("test", "today")
