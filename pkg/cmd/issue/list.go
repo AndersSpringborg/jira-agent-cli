@@ -52,7 +52,7 @@ Examples:
 				project = ctx.Project
 			}
 			if project == "" {
-				return fmt.Errorf("no project specified; use --project or set context with `jira context set --project PROJ`")
+				return fmt.Errorf("no project specified; use --project or activate one set with `jira context set NAME --project PROJ`")
 			}
 			if assignee == "" && ctx != nil && ctx.Assignee != "" {
 				assignee = ctx.Assignee

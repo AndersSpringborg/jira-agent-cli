@@ -36,7 +36,7 @@ func newCreateCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 			}
 			if project == "" {
-				return fmt.Errorf("--project is required (or set via `jira context set --project`)")
+				return fmt.Errorf("--project is required (or activate a context set via `jira context set NAME --project PROJ`)")
 			}
 			if summary == "" {
 				return fmt.Errorf("--summary is required")

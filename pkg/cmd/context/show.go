@@ -1,6 +1,8 @@
 package context
 
 import (
+	"fmt"
+
 	"AndersSpringborg/jira-cli/internal/cmdutil"
 	"AndersSpringborg/jira-cli/internal/config"
 
@@ -8,26 +10,32 @@ import (
 )
 
 func newShowCmd(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "show",
-		Short: "Show active context for the current profile",
+	return &cobra.Command{
+		Use:   "show [name]",
+		Short: "Show a named context (active context by default)",
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			profile, err := f.LoadProfile()
+			cfg, err := f.LoadConfig()
 			if err != nil {
 				return err
 			}
 
-			driver := f.DisplayDriver(cmd)
-
-			ctx := profile.Context
-			if ctx == nil || ctx.IsEmpty() {
-				return driver.Message("No context set for profile '%s'.", profile.Name)
+			name := cfg.ActiveContext
+			if len(args) == 1 {
+				name = args[0]
+			}
+			if name == "" {
+				return fmt.Errorf("no active context; create one with `jira context set <name>`")
+			}
+			ctx := config.GetContext(cfg, name)
+			if ctx == nil {
+				return fmt.Errorf("context '%s' not found", name)
 			}
 
-			jql := config.BuildJQL(ctx)
-
 			data := map[string]any{
-				"profile": profile.Name,
+				"name":    name,
+				"active":  name == cfg.ActiveContext,
+				"profile": ctx.Profile,
 			}
 			if ctx.Project != "" {
 				data["project"] = ctx.Project
@@ -53,13 +61,12 @@ func newShowCmd(f *cmdutil.Factory) *cobra.Command {
 			if ctx.Display != "" {
 				data["display"] = ctx.Display
 			}
-			if jql != "" {
+			if jql := config.BuildJQL(ctx); jql != "" {
 				data["jql"] = jql
 			}
 
+			driver := f.DisplayDriver(cmd)
 			return driver.Item("Context", data)
 		},
 	}
-
-	return cmd
 }

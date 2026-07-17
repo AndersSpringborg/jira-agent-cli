@@ -44,7 +44,7 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 
 			if boardID == 0 {
-				return fmt.Errorf("board ID is required (pass as argument or set via `jira context set --board-id`)")
+				return fmt.Errorf("board ID is required (pass as argument or set via `jira context set NAME --board-id ID`)")
 			}
 
 			client, err := f.LoadClient()

@@ -33,8 +33,9 @@ jira issue move PROJ-456 "Done"
 ## Triage: bugs I should look at next
 
 ```bash
-# Set context once so everything below is project-scoped
-jira context set --project PROJ --display markdown
+# Set and activate a named context so everything below is project-scoped
+jira context set work --project PROJ --display markdown
+jira context use work
 
 # Open bugs assigned to me, sorted by priority
 jira search jql \
