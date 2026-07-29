@@ -1,6 +1,7 @@
 package issue
 
 import (
+	"fmt"
 	"strings"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
@@ -39,7 +40,17 @@ func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 		Use:     "view <issue-key>",
 		Aliases: []string{"get"},
 		Short:   "View issue details",
-		Args:    cobra.ExactArgs(1),
+		Long: `View issue details as JSON or markdown.
+
+The default output includes attachment metadata. When attachments exist, the
+result includes a next step showing how to download binary content to a local
+file for inspection. Explicit --field/--fields selections replace the default
+field set; include "attachment" when using field projection.`,
+		Example: `  jira issue get PROJ-123
+  jira issue get PROJ-123 --format markdown
+  jira issue get PROJ-123 --field summary --field attachment
+  jira issue attachment download PROJ-123 10042 --output /tmp/screenshot.png`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueKey := strings.ToUpper(args[0])
 
@@ -100,6 +111,12 @@ func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 
 				issueData["fields"] = displayFields
+				if attachments, ok := displayFields["attachment"].([]any); ok && len(attachments) > 0 {
+					issueData["nextSteps"] = []any{map[string]any{
+						"action":  "downloadAttachment",
+						"command": fmt.Sprintf("jira issue attachment download %s ATTACHMENT_ID --output PATH", issueKey),
+					}}
+				}
 			}
 
 			return driver.Item("Issue", issueData)

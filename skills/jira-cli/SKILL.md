@@ -82,7 +82,7 @@ When no predefined command fits, use `jira api`: it sends a raw request with the
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
 
-`jira issue get PROJ-123` returns attachment metadata in `fields.attachment` by default. Prefer an attachment ID when downloading because filenames can be duplicated. Download to an explicit local path, then inspect that path with the available image, document, archive, or text-reading tool:
+`jira issue get PROJ-123` returns attachment metadata in `fields.attachment` by default and adds a structured `nextSteps` download command when attachments exist. In markdown, that command appears at the bottom under **Next steps**. Prefer an attachment ID when downloading because filenames can be duplicated. Download to an explicit local path, then inspect that path with the available image, document, archive, or text-reading tool. The same guidance is available through `jira issue get --help` and `jira issue attachment download --help`:
 
 ```bash
 jira issue get PROJ-123 | jq '.fields.attachment[] | {id, filename, mimeType, size}'

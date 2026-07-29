@@ -79,6 +79,8 @@ func TestIssueGetIncludesAttachmentsByDefault(t *testing.T) {
 	root.SetArgs([]string{"issue", "get", "test-1"})
 	require.NoError(t, root.Execute())
 	assert.Contains(t, stdout.String(), `"filename": "screenshot.png"`)
+	assert.Contains(t, stdout.String(), `"action": "downloadAttachment"`)
+	assert.Contains(t, stdout.String(), "jira issue attachment download TEST-1 ATTACHMENT_ID --output PATH")
 }
 
 func TestIssueAttachmentDownload(t *testing.T) {

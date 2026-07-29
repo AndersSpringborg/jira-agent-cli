@@ -165,6 +165,19 @@ Run `jira issue <verb> --help` for the full flag set on any command.
 
 `jira issue get PROJ-123` (alias of `view`) includes attachment metadata by default, including each attachment's ID, filename, media type, size, and Jira content URL. JSON keeps Jira's original attachment objects; markdown renders a dedicated attachments table. If you explicitly narrow fields with `--field` or `--fields`, include `attachment` yourself.
 
+When attachments exist, normal issue output also includes a structured follow-up hint (rendered as **Next steps** at the bottom in markdown):
+
+```json
+"nextSteps": [
+  {
+    "action": "downloadAttachment",
+    "command": "jira issue attachment download PROJ-123 ATTACHMENT_ID --output PATH"
+  }
+]
+```
+
+Replace `ATTACHMENT_ID` with an ID from `fields.attachment` and `PATH` with the local destination. The same workflow and examples are available offline through `jira issue get --help` and `jira issue attachment download --help`.
+
 Download binary content to a file before asking an LLM or another local tool to inspect it:
 
 ```bash

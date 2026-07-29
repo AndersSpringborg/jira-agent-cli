@@ -27,7 +27,15 @@ func newAttachmentDownloadCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "download <issue-key> <attachment-id-or-filename>",
 		Short: "Download an issue attachment to a file",
-		Args:  cobra.ExactArgs(2),
+		Long: `Download one issue attachment to an explicit local file.
+
+Use "jira issue get ISSUE" first to list attachment IDs, filenames, media
+types, and sizes. IDs are preferred because filenames can be duplicated. The
+binary body is never printed to stdout; stdout contains structured metadata and
+the absolute local path so an LLM or another tool can inspect the saved file.`,
+		Example: `  jira issue attachment download PROJ-123 10042 --output /tmp/screenshot.png
+  jira issue attachment download PROJ-123 screenshot.png -o /tmp/screenshot.png`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueKey := strings.ToUpper(args[0])
 			client, err := f.LoadClient()

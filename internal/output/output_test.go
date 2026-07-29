@@ -149,6 +149,10 @@ func TestMarkdownDriver_Item_WithAttachments(t *testing.T) {
 
 	data := map[string]any{
 		"key": "PROJ-123",
+		"nextSteps": []any{map[string]any{
+			"action":  "downloadAttachment",
+			"command": "jira issue attachment download PROJ-123 ATTACHMENT_ID --output PATH",
+		}},
 		"fields": map[string]any{
 			"summary": "Test issue",
 			"attachment": []any{
@@ -171,6 +175,9 @@ func TestMarkdownDriver_Item_WithAttachments(t *testing.T) {
 	assert.Contains(t, out, "| 2048  | Alice")
 	assert.Contains(t, out, "2026-06-08T10:00:00.000+0000")
 	assert.NotContains(t, out, "| attachment")
+	assert.Contains(t, out, "### Next steps")
+	assert.Contains(t, out, "`jira issue attachment download PROJ-123 ATTACHMENT_ID --output PATH`")
+	assert.Greater(t, strings.Index(out, "### Next steps"), strings.Index(out, "### Attachments"))
 }
 
 func TestMarkdownDriver_Item_WithComments(t *testing.T) {

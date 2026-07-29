@@ -58,12 +58,20 @@ func TestWriteAttachmentFileIsAtomic(t *testing.T) {
 	assert.ErrorIs(t, statErr, os.ErrNotExist)
 }
 
-func TestAttachmentCommandIsRegistered(t *testing.T) {
+func TestAttachmentCommandsExplainTheFollowUpWorkflow(t *testing.T) {
 	cmd := NewCmd(&cmdutil.Factory{})
+
+	view, _, err := cmd.Find([]string{"get"})
+	require.NoError(t, err)
+	assert.Contains(t, view.Long, "attachment metadata")
+	assert.Contains(t, view.Example, "issue attachment download")
+
 	download, _, err := cmd.Find([]string{"attachment", "download"})
 	require.NoError(t, err)
 	assert.Equal(t, "download", download.Name())
 	assert.Contains(t, download.Use, "<issue-key> <attachment-id-or-filename>")
+	assert.Contains(t, download.Long, "LLM")
+	assert.Contains(t, download.Example, "--output")
 	assert.NotNil(t, download.Flags().Lookup("output"))
 }
 

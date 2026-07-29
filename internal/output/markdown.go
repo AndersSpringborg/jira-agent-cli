@@ -51,7 +51,7 @@ func (d *MarkdownDriver) Item(title string, data map[string]any) error {
 		}
 	}
 
-	return nil
+	return d.renderNextSteps(data)
 }
 
 func (d *MarkdownDriver) List(title string, columns []string, rows []map[string]any) error {
@@ -183,6 +183,39 @@ func (d *MarkdownDriver) renderAttachments(fields map[string]any) error {
 		return err
 	}
 	return renderMarkdownTable(d.w, []string{"ID", "Filename", "Media Type", "Bytes", "Author", "Created"}, rows)
+}
+
+// renderNextSteps keeps follow-up commands at the bottom of item output so
+// agents can discover how to retrieve data that is not embedded in the result.
+func (d *MarkdownDriver) renderNextSteps(data map[string]any) error {
+	steps, ok := data["nextSteps"].([]any)
+	if !ok || len(steps) == 0 {
+		return nil
+	}
+
+	commands := make([]string, 0, len(steps))
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if command, ok := step["command"].(string); ok && command != "" {
+			commands = append(commands, command)
+		}
+	}
+	if len(commands) == 0 {
+		return nil
+	}
+
+	if _, err := fmt.Fprintln(d.w, "\n### Next steps"); err != nil {
+		return err
+	}
+	for _, command := range commands {
+		if _, err := fmt.Fprintf(d.w, "\n- `%s`\n", command); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // renderComments renders issue comments as markdown sections.
