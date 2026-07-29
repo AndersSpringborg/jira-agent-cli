@@ -48,9 +48,14 @@ func newViewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 
-			driver := f.DisplayDriver(cmd)
+			driver := f.DisplayDriverTo(cmd, cmd.OutOrStdout())
 
 			requestedFields := parseViewFields(fields, fieldList)
+			if len(requestedFields) == 0 {
+				// Jira's default navigable fields can omit attachments. Preserve
+				// the normal field set while guaranteeing attachment metadata.
+				requestedFields = []string{"*navigable", "attachment"}
+			}
 
 			// Request comments if the user asked for them.
 			if comments > 0 {

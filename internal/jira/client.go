@@ -60,8 +60,23 @@ func NewClient(baseURL, email, token, authType string, timeout float64) (*Client
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   time.Duration(timeout) * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 10 {
+					return fmt.Errorf("stopped after 10 redirects")
+				}
+				if len(via) > 0 && !sameOrigin(req.URL, via[0].URL) {
+					req.Header.Del("Authorization")
+					req.Header.Del("Cookie")
+					req.Header.Del("Proxy-Authorization")
+				}
+				return nil
+			},
 		},
 	}, nil
+}
+
+func sameOrigin(left, right *url.URL) bool {
+	return strings.EqualFold(left.Scheme, right.Scheme) && strings.EqualFold(left.Host, right.Host)
 }
 
 // EnableDebug writes raw HTTP responses to w while preserving response bodies
@@ -87,6 +102,54 @@ func (c *Client) GetIssue(key string, fields []string) (map[string]any, error) {
 		path += "?fields=" + strings.Join(fields, ",")
 	}
 	return c.getJSON(path)
+}
+
+// DownloadAttachment downloads attachment content from a URL returned by Jira.
+// Credentials are sent only when the content URL has the same origin as the
+// configured Jira instance. Go's HTTP client also strips credentials when a
+// response redirects to an unrelated host.
+func (c *Client) DownloadAttachment(contentURL string) (*http.Response, error) {
+	base, err := url.Parse(c.BaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse Jira base URL: %w", err)
+	}
+	content, err := url.Parse(contentURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse attachment URL: %w", err)
+	}
+
+	if content.IsAbs() {
+		if !strings.EqualFold(content.Scheme, base.Scheme) || !strings.EqualFold(content.Host, base.Host) {
+			return nil, fmt.Errorf("attachment URL is outside Jira origin: %s", contentURL)
+		}
+	} else if !strings.HasPrefix(content.Path, "/") {
+		return nil, fmt.Errorf("attachment URL must be absolute or root-relative: %s", contentURL)
+	}
+
+	path := content.EscapedPath()
+	basePath := strings.TrimSuffix(base.EscapedPath(), "/")
+	if basePath != "" {
+		switch {
+		case path == basePath:
+			path = "/"
+		case strings.HasPrefix(path, basePath+"/"):
+			path = strings.TrimPrefix(path, basePath)
+		case content.IsAbs():
+			return nil, fmt.Errorf("attachment URL is outside Jira base path: %s", contentURL)
+		}
+	}
+	if content.RawQuery != "" {
+		path += "?" + content.RawQuery
+	}
+	resp, err := c.do("GET", path, nil, map[string]string{"Accept": "*/*"})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close() //nolint:errcheck // preserve the response error
+		return nil, c.formatError(resp)
+	}
+	return resp, nil
 }
 
 // CreateIssue creates a new issue and returns the created issue data.

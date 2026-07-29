@@ -88,7 +88,8 @@ A per-command `--format` flag always overrides the context default. See [Output 
 
 ```bash
 jira issue list                                          # issues in your project
-jira issue view PROJ-123
+jira issue view PROJ-123                                  # includes attachment metadata
+jira issue attachment download PROJ-123 10042 -o /tmp/screenshot.png
 jira issue create -p PROJ -s "Fix login bug" -t Bug
 jira search jql "project = PROJ AND status = 'In Progress'"
 jira issue list | jq '.[].key'
@@ -159,6 +160,22 @@ jira issue move "$key" "In Progress" && jira issue assign "$key" me
 ```
 
 Run `jira issue <verb> --help` for the full flag set on any command.
+
+### Inspecting attachments
+
+`jira issue get PROJ-123` (alias of `view`) includes attachment metadata by default, including each attachment's ID, filename, media type, size, and Jira content URL. JSON keeps Jira's original attachment objects; markdown renders a dedicated attachments table. If you explicitly narrow fields with `--field` or `--fields`, include `attachment` yourself.
+
+Download binary content to a file before asking an LLM or another local tool to inspect it:
+
+```bash
+# IDs are unambiguous and preferred for automation
+jira issue attachment download PROJ-123 10042 --output /tmp/screenshot.png
+
+# An exact filename also works when only one attachment has that name
+jira issue attachment download PROJ-123 screenshot.png -o /tmp/screenshot.png
+```
+
+The command never prints binary data to stdout. It downloads through the authenticated Jira client, writes through a temporary file so failures do not leave a partial destination, and returns structured metadata including the local absolute `path`. Cross-origin redirects do not receive Jira credentials.
 
 ## Commands
 
@@ -285,7 +302,7 @@ jira issue view CER-1 --raw | rg -o '"customfield_\d+"'
 ```
 
 ### Non-mutating discovery and field projection
-Read paths (`search jql`, `search text`, `issue list`, `mine`, `issue view`) are non-mutating and return consistent, keyed JSON (`key`, `fields.*`). Custom-field projection keeps responses small so an agent retrieves only what it needs via repeatable `--field`/`-F` flags; `issue view` also keeps `--fields` as a comma-separated alias.
+Read paths (`search jql`, `search text`, `issue list`, `mine`, `issue view`, attachment downloads) do not mutate Jira and return consistent, keyed JSON (`key`, `fields.*`). `issue view` includes attachment metadata by default, and `issue attachment download` materializes selected binary content at an explicit local path for inspection. Custom-field projection keeps responses small so an agent retrieves only what it needs via repeatable `--field`/`-F` flags; `issue view` also keeps `--fields` as a comma-separated alias.
 
 ### CLI over MCP
 Rather than running a Model Context Protocol server, this is a standard binary: no long-lived daemon, no open socket, no persistent state between executions. Every action is the exact execution string, so debugging is just re-running the command from shell history, and agents reuse shell operators (`&&`, `||`, `|`, `>`) instead of learning a custom RPC protocol.

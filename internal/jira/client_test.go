@@ -3,6 +3,7 @@ package jira_test
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -124,6 +125,83 @@ func TestGetIssue_WithFields(t *testing.T) {
 
 	_, err := client.GetIssue("TEST-1", []string{"summary", "status"})
 	require.NoError(t, err)
+}
+
+func TestDownloadAttachment(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/attachment/content/10042", r.URL.Path)
+		username, password, ok := r.BasicAuth()
+		assert.True(t, ok)
+		assert.Equal(t, "test@example.com", username)
+		assert.Equal(t, "test-token", password)
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte("png contents"))
+	})
+	defer server.Close()
+
+	resp, err := client.DownloadAttachment(server.URL + "/rest/api/3/attachment/content/10042")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, resp.Body.Close()) }()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "png contents", string(body))
+}
+
+func TestDownloadAttachmentSupportsJiraContextPath(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/jira/secure/attachment/10042/file.txt", r.URL.Path)
+		_, _ = w.Write([]byte("contents"))
+	}))
+	defer server.Close()
+	client, err := jira.NewClient(server.URL+"/jira", "test@example.com", "test-token", "basic", 5)
+	require.NoError(t, err)
+
+	resp, err := client.DownloadAttachment(server.URL + "/jira/secure/attachment/10042/file.txt")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+}
+
+func TestDownloadAttachmentStripsCredentialsOnCrossOriginRedirect(t *testing.T) {
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("Authorization"))
+		_, _ = w.Write([]byte("redirected contents"))
+	}))
+	defer target.Close()
+
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL+"/signed-content", http.StatusFound)
+	})
+	defer server.Close()
+
+	resp, err := client.DownloadAttachment(server.URL + "/attachment/10042")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, resp.Body.Close()) }()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	assert.Equal(t, "redirected contents", string(body))
+}
+
+func TestDownloadAttachmentRejectsOtherOrigins(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("unexpected request")
+	})
+	defer server.Close()
+
+	_, err := client.DownloadAttachment("https://example.com/secret.png")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "outside Jira origin")
+}
+
+func TestDownloadAttachmentReturnsJiraError(t *testing.T) {
+	server, client := newTestServer(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"errorMessages":["attachment not found"]}`))
+	})
+	defer server.Close()
+
+	_, err := client.DownloadAttachment(server.URL + "/missing")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "attachment not found")
 }
 
 func TestSearch(t *testing.T) {
