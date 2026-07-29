@@ -42,13 +42,16 @@ func (d *MarkdownDriver) Item(title string, data map[string]any) error {
 			}
 		}
 
-		// Render comments if present
+		// Render attachments and comments as dedicated sections.
+		if err := d.renderAttachments(fields); err != nil {
+			return err
+		}
 		if err := d.renderComments(fields); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	return d.renderNextSteps(data)
 }
 
 func (d *MarkdownDriver) List(title string, columns []string, rows []map[string]any) error {
@@ -149,6 +152,70 @@ func (d *MarkdownDriver) renderFieldTable(data map[string]any) error {
 		rows = append(rows, []string{kv[0], kv[1]})
 	}
 	return renderMarkdownTable(d.w, []string{"Field", "Value"}, rows)
+}
+
+// renderAttachments renders issue attachment metadata without embedding binary content.
+func (d *MarkdownDriver) renderAttachments(fields map[string]any) error {
+	attachmentList, ok := fields["attachment"].([]any)
+	if !ok || len(attachmentList) == 0 {
+		return nil
+	}
+
+	rows := make([][]string, 0, len(attachmentList))
+	for _, item := range attachmentList {
+		attachment, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		rows = append(rows, []string{
+			FormatValue(attachment["id"]),
+			FormatValue(attachment["filename"]),
+			FormatValue(attachment["mimeType"]),
+			FormatValue(attachment["size"]),
+			FormatValue(attachment["author"]),
+			FormatValue(attachment["created"]),
+		})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+	if _, err := fmt.Fprintf(d.w, "\n### Attachments (%d)\n\n", len(rows)); err != nil {
+		return err
+	}
+	return renderMarkdownTable(d.w, []string{"ID", "Filename", "Media Type", "Bytes", "Author", "Created"}, rows)
+}
+
+// renderNextSteps keeps follow-up commands at the bottom of item output so
+// agents can discover how to retrieve data that is not embedded in the result.
+func (d *MarkdownDriver) renderNextSteps(data map[string]any) error {
+	steps, ok := data["nextSteps"].([]any)
+	if !ok || len(steps) == 0 {
+		return nil
+	}
+
+	commands := make([]string, 0, len(steps))
+	for _, item := range steps {
+		step, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if command, ok := step["command"].(string); ok && command != "" {
+			commands = append(commands, command)
+		}
+	}
+	if len(commands) == 0 {
+		return nil
+	}
+
+	if _, err := fmt.Fprintln(d.w, "\n### Next steps"); err != nil {
+		return err
+	}
+	for _, command := range commands {
+		if _, err := fmt.Fprintf(d.w, "\n- `%s`\n", command); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // renderComments renders issue comments as markdown sections.
@@ -257,7 +324,7 @@ func extractDisplayFields(data map[string]any) [][2]string {
 	// Include any remaining fields not in the display order
 	// (skip complex nested objects like description, comment)
 	for k, v := range source {
-		if seen[k] || k == "description" || k == "comment" {
+		if seen[k] || k == "description" || k == "comment" || k == "attachment" {
 			continue
 		}
 		formatted := FormatValue(v)

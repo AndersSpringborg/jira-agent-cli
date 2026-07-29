@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -47,6 +48,84 @@ func TestUpdateUsesNPMForNPMInstallations(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "install -g @888aaen/jira-cli@latest\n", string(args))
 	assert.JSONEq(t, `{"method":"npm","previousVersion":"1.0.0","updated":true}`, stdout.String())
+}
+
+func TestIssueGetIncludesAttachmentsByDefault(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/rest/api/3/issue/TEST-1", r.URL.Path)
+		assert.Equal(t, "*navigable,attachment", r.URL.Query().Get("fields"))
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"key": "TEST-1",
+			"fields": map[string]any{
+				"summary": "Issue with a file",
+				"attachment": []any{map[string]any{
+					"id": "10042", "filename": "screenshot.png",
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("JIRA_BASE_URL", server.URL)
+	t.Setenv("JIRA_TOKEN", "secret-token")
+	t.Setenv("JIRA_EMAIL", "test@example.com")
+	t.Setenv("JIRA_AUTH_TYPE", "basic")
+
+	root := NewRootCmd("test", "today")
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetArgs([]string{"issue", "get", "test-1"})
+	require.NoError(t, root.Execute())
+	assert.Contains(t, stdout.String(), `"filename": "screenshot.png"`)
+	assert.Contains(t, stdout.String(), `"action": "downloadAttachment"`)
+	assert.Contains(t, stdout.String(), "jira issue attachment download TEST-1 ATTACHMENT_ID --output PATH")
+}
+
+func TestIssueAttachmentDownload(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/rest/api/3/issue/TEST-1":
+			assert.Equal(t, "attachment", r.URL.Query().Get("fields"))
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": "TEST-1",
+				"fields": map[string]any{"attachment": []any{map[string]any{
+					"id": "10042", "filename": "screenshot.png", "mimeType": "image/png",
+					"size": float64(12), "content": server.URL + "/attachment/10042",
+				}}},
+			})
+		case "/attachment/10042":
+			username, password, ok := r.BasicAuth()
+			assert.True(t, ok)
+			assert.Equal(t, "test@example.com", username)
+			assert.Equal(t, "secret-token", password)
+			_, _ = w.Write([]byte("image bytes"))
+		default:
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("JIRA_BASE_URL", server.URL)
+	t.Setenv("JIRA_TOKEN", "secret-token")
+	t.Setenv("JIRA_EMAIL", "test@example.com")
+	t.Setenv("JIRA_AUTH_TYPE", "basic")
+	outputPath := filepath.Join(t.TempDir(), "screenshot.png")
+
+	root := NewRootCmd("test", "today")
+	var stdout bytes.Buffer
+	root.SetOut(&stdout)
+	root.SetArgs([]string{"issue", "attachment", "download", "test-1", "screenshot.png", "--output", outputPath})
+	require.NoError(t, root.Execute())
+
+	contents, err := os.ReadFile(outputPath)
+	require.NoError(t, err)
+	assert.Equal(t, "image bytes", string(contents))
+	assert.JSONEq(t, fmt.Sprintf(`{"issueKey":"TEST-1","id":"10042","filename":"screenshot.png","mimeType":"image/png","size":12,"path":%q}`, outputPath), stdout.String())
 }
 
 func TestExecutePrintsFailingCommandHelpOnError(t *testing.T) {

@@ -27,7 +27,7 @@ Flow: **draft -> approve -> execute.**
 2. **Approve.** Wait for confirmation. If they want changes, redraft and show it again — never execute a partially-approved change.
 3. **Execute.** Run the approved command verbatim. If a key won't resolve or a field is rejected, stop and re-draft — don't improvise a different write.
 
-Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries) never mutate — run them freely, including to gather data for an accurate draft.
+Reads (`list`, `view`, `search`, attachment downloads, `me`/`mine`, `ping`, board/project/user queries) never mutate Jira — run them freely, including to gather data for an accurate draft. Attachment downloads do write to the explicit local `--output` path.
 
 ## Core rules
 
@@ -50,7 +50,8 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 | Inspect dependency graph          | `jira issue graph` (`nodes`, blocker -> blocked `edges`, `ready`, `blocked`, `cycles`) |
 | Visually verify dependencies      | `jira issue graph-pretty` (connected lines and concise state markers) |
 | List issues assigned to me        | `jira mine` (alias `my`); `--all` includes done               |
-| View an issue                     | `jira issue view PROJ-123` (alias `get`; supports `-F`)       |
+| View an issue                     | `jira issue view PROJ-123` (alias `get`; includes attachment metadata; supports `-F`) |
+| Download an attachment            | `jira issue attachment download PROJ-123 <id-or-filename> -o /tmp/file` |
 | Create an issue                   | `jira issue create -p PROJ -s "Summary" -t Bug [-b "body"] [-y High]` |
 | Edit summary / labels / etc.      | `jira issue edit PROJ-123 -s "New summary"` (alias `update`)  |
 | Edit a custom field               | `jira issue edit PROJ-123 --field customfield_10016=5`        |
@@ -80,6 +81,15 @@ Reads (`list`, `view`, `search`, `me`/`mine`, `ping`, board/project/user queries
 When no predefined command fits, use `jira api`: it sends a raw request with the profile's auth and prints the response verbatim. Full paths (starting with `/`) pass through unchanged; shorthand paths like `issue/PROJ-1` get the platform prefix for the instance flavor (`/rest/api/3` on Cloud, `/rest/api/2` on Server/Data Center). `-d` implies POST (`@file` and `-` for stdin work); find the right endpoint first with `jira api --list <terms>`, which searches an embedded catalog of the official API for the profile's flavor. Errors print Jira's error body and exit non-zero.
 
 For anything not listed, run `jira <group> --help` - help is authoritative. Failed commands automatically include the failing command's full help text on stderr; use it to correct the next call instead of repeating the same command.
+
+`jira issue get PROJ-123` returns attachment metadata in `fields.attachment` by default and adds a structured `nextSteps` download command when attachments exist. In markdown, that command appears at the bottom under **Next steps**. Prefer an attachment ID when downloading because filenames can be duplicated. Download to an explicit local path, then inspect that path with the available image, document, archive, or text-reading tool. The same guidance is available through `jira issue get --help` and `jira issue attachment download --help`:
+
+```bash
+jira issue get PROJ-123 | jq '.fields.attachment[] | {id, filename, mimeType, size}'
+jira issue attachment download PROJ-123 10042 --output /tmp/jira-10042.png
+```
+
+Never fetch the `content` URL with unauthenticated `curl` or expose credentials to another host; let the CLI perform the authenticated download. Binary bytes are never printed to stdout.
 
 Dependency commands inherit the active project/context filters and accept explicit scope flags; `--status "Define,To Do,Backlog"` selects multiple statuses. `jira issue ready` orders actionable issues by how many unresolved issues they directly unblock. `jira issue graph` retains linked blockers outside the selected scope as `inScope: false`; inspect `.cycles` before trying to sequence cyclic work. Use `jira issue graph-pretty` when a human should verify the full topology: it builds the graph first, layers it by dependency depth, and draws continuous top-down branch and join lines. `●`, `○`, `✓`, `◇`, and `↻` mark ready, blocked, resolved, external, and cyclic nodes. A blocker counts as resolved only when Jira's `resolution` field is set. Use `--link-type` for a custom dependency link name.
 

@@ -18,6 +18,7 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 
 	cmd.AddCommand(listCmd)
 	cmd.AddCommand(newViewCmd(f))
+	cmd.AddCommand(newAttachmentCmd(f))
 	cmd.AddCommand(newCreateCmd(f))
 	cmd.AddCommand(newEditCmd(f))
 	cmd.AddCommand(newDeleteCmd(f))

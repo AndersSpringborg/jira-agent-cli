@@ -143,6 +143,43 @@ func TestMarkdownDriver_Item_Issue(t *testing.T) {
 	assert.Contains(t, out, "redirected to a blank page")
 }
 
+func TestMarkdownDriver_Item_WithAttachments(t *testing.T) {
+	var buf bytes.Buffer
+	d := output.NewDriverWithWriter(output.FormatMarkdown, &buf)
+
+	data := map[string]any{
+		"key": "PROJ-123",
+		"nextSteps": []any{map[string]any{
+			"action":  "downloadAttachment",
+			"command": "jira issue attachment download PROJ-123 ATTACHMENT_ID --output PATH",
+		}},
+		"fields": map[string]any{
+			"summary": "Test issue",
+			"attachment": []any{
+				map[string]any{
+					"id":       "10042",
+					"filename": "screenshot.png",
+					"mimeType": "image/png",
+					"size":     float64(2048),
+					"created":  "2026-06-08T10:00:00.000+0000",
+					"author":   map[string]any{"displayName": "Alice"},
+				},
+			},
+		},
+	}
+
+	require.NoError(t, d.Item("Issue", data))
+	out := buf.String()
+	assert.Contains(t, out, "### Attachments (1)")
+	assert.Contains(t, out, "| 10042 | screenshot.png | image/png")
+	assert.Contains(t, out, "| 2048  | Alice")
+	assert.Contains(t, out, "2026-06-08T10:00:00.000+0000")
+	assert.NotContains(t, out, "| attachment")
+	assert.Contains(t, out, "### Next steps")
+	assert.Contains(t, out, "`jira issue attachment download PROJ-123 ATTACHMENT_ID --output PATH`")
+	assert.Greater(t, strings.Index(out, "### Next steps"), strings.Index(out, "### Attachments"))
+}
+
 func TestMarkdownDriver_Item_WithComments(t *testing.T) {
 	var buf bytes.Buffer
 	d := output.NewDriverWithWriter(output.FormatMarkdown, &buf)
