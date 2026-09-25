@@ -240,7 +240,7 @@ Failed requests print Jira's error body (that's the useful part) and exit non-ze
 
 ### Resolving issue dependencies
 
-Jira's `Blocks` links form a directed graph from blocker to blocked issue. The dependency commands use the active project/context filters and accept the same scope flags (`--project`, `--status`, `--assignee`, `--type`, `--epic`, `--label`, and `--max`). Status accepts a comma-separated set, for example `--status "Define,To Do,Backlog"`. Use `--link-type` if your Jira site names dependency links differently.
+Jira's dependency links form a directed graph from blocker to blocked issue. By default every link type described as "blocks" or "depends on" is followed (for example `Blocks` or a custom `Depend` type); an issue is blocked by the issue it depends on. The dependency commands use the active project/context filters and accept the same scope flags (`--project`, `--status`, `--assignee`, `--type`, `--epic`, `--label`, and `--max`). Status accepts a comma-separated set, for example `--status "Define,To Do,Backlog"`. Use `--link-type NAME` (repeatable) to follow only specific link types.
 
 ```bash
 jira issue ready --project PROJ

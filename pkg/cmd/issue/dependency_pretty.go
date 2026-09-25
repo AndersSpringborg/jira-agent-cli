@@ -437,30 +437,24 @@ func renderPrettyRoutes(width int, edges []prettyLayoutEdge, positions map[strin
 		return text.String()
 	}
 
-	lanes := prettyRouteLanes(edges)
+	routes := prettyRoutes(width, edges, positions)
 	height := 3
-	for _, lane := range lanes {
-		height = max(height, lane+2)
+	for _, route := range routes {
+		height = max(height, route.lane+2)
 	}
 	grid := make([][]int, height)
 	for row := range grid {
 		grid[row] = make([]int, width)
 	}
-	for index, edge := range edges {
-		fromX := positions[edge.from]
-		toX := positions[edge.to]
-		lane := lanes[index]
-		prettyVertical(grid, fromX, 0, lane)
-		prettyHorizontal(grid, lane, fromX, toX)
-		prettyVertical(grid, toX, lane, height-1)
+	for _, route := range routes {
+		prettyVertical(grid, route.fromX, 0, route.lane)
+		prettyHorizontal(grid, route.lane, route.fromX, route.toX)
+		prettyVertical(grid, route.toX, route.lane, height-1)
 	}
 	var text strings.Builder
 	targets := make(map[int]bool)
-	virtualTargets := make(map[int]bool)
-	for _, edge := range edges {
-		x := positions[edge.to]
-		targets[x] = true
-		virtualTargets[x] = virtual[edge.to]
+	for index, edge := range edges {
+		targets[routes[index].toX] = virtual[edge.to]
 	}
 	for row := range grid {
 		line := make([]rune, width)
@@ -468,8 +462,8 @@ func renderPrettyRoutes(width int, edges []prettyLayoutEdge, positions map[strin
 			line[column] = prettyConnector(mask)
 		}
 		if row == height-1 {
-			for column := range targets {
-				if virtualTargets[column] {
+			for column, isVirtual := range targets {
+				if isVirtual {
 					line[column] = '│'
 				} else {
 					line[column] = '▼'
@@ -482,32 +476,107 @@ func renderPrettyRoutes(width int, edges []prettyLayoutEdge, positions map[strin
 	return text.String()
 }
 
-func prettyRouteLanes(edges []prettyLayoutEdge) []int {
+type prettyRoute struct {
+	fromX, toX, lane int
+}
+
+// prettyRoutes places each edge between two layers. A pure fan-out or fan-in
+// shares one column per node and a single lane, drawing a joined branch. Any
+// other layer gives every edge its own columns and lane, so crossing edges
+// only ever cross (┼) and never merge into lines that suggest false edges.
+func prettyRoutes(width int, edges []prettyLayoutEdge, positions map[string]int) []prettyRoute {
 	sources := make(map[string]bool)
 	targets := make(map[string]bool)
 	for _, edge := range edges {
 		sources[edge.from] = true
 		targets[edge.to] = true
 	}
-	lanes := make([]int, len(edges))
+	routes := make([]prettyRoute, len(edges))
 	if len(sources) == 1 || len(targets) == 1 {
-		for index := range lanes {
-			lanes[index] = 1
+		for index, edge := range edges {
+			routes[index] = prettyRoute{fromX: positions[edge.from], toX: positions[edge.to], lane: 1}
 		}
-		return lanes
+		return routes
 	}
-	laneBySource := make(map[string]int)
-	nextLane := 1
+
+	outgoing := make(map[string][]int)
 	for index, edge := range edges {
-		lane, exists := laneBySource[edge.from]
-		if !exists {
-			lane = nextLane
-			nextLane++
-			laneBySource[edge.from] = lane
-		}
-		lanes[index] = lane
+		outgoing[edge.from] = append(outgoing[edge.from], index)
 	}
-	return lanes
+	taken := make(map[int]bool)
+	for from, indexes := range outgoing {
+		sort.SliceStable(indexes, func(i, j int) bool {
+			return positions[edges[indexes[i]].to] < positions[edges[indexes[j]].to]
+		})
+		for port, index := range indexes {
+			routes[index].fromX = positions[from] - (len(indexes) - 1) + 2*port
+			taken[routes[index].fromX] = true
+		}
+	}
+
+	incoming := make(map[string][]int)
+	for index, edge := range edges {
+		if positions[edge.from] == positions[edge.to] {
+			routes[index].toX = routes[index].fromX
+			continue
+		}
+		incoming[edge.to] = append(incoming[edge.to], index)
+	}
+	targetKeys := make([]string, 0, len(incoming))
+	for to := range incoming {
+		targetKeys = append(targetKeys, to)
+	}
+	sort.Slice(targetKeys, func(i, j int) bool { return positions[targetKeys[i]] < positions[targetKeys[j]] })
+	for _, to := range targetKeys {
+		indexes := incoming[to]
+		sort.SliceStable(indexes, func(i, j int) bool {
+			return routes[indexes[i]].fromX < routes[indexes[j]].fromX
+		})
+		ports := prettyFreeColumns(width, positions[to], len(indexes), taken)
+		for port, index := range indexes {
+			routes[index].toX = ports[port]
+		}
+	}
+
+	lane := 0
+	for index := range routes {
+		if routes[index].fromX != routes[index].toX {
+			lane++
+		}
+		routes[index].lane = max(lane, 1)
+	}
+	return routes
+}
+
+// prettyFreeColumns claims the count untaken columns nearest to center, in
+// left-to-right order. It prefers columns with a gap to every taken column so
+// adjacent lines stay readable, and packs them tightly only when space runs out.
+func prettyFreeColumns(width, center, count int, taken map[int]bool) []int {
+	columns := make([]int, 0, count)
+	for gap := 1; gap >= 0 && len(columns) < count; gap-- {
+		for distance := 0; distance < width && len(columns) < count; distance++ {
+			for _, column := range []int{center + distance, center - distance} {
+				if len(columns) < count && prettyColumnFree(width, column, gap, taken) {
+					taken[column] = true
+					columns = append(columns, column)
+				}
+			}
+		}
+	}
+	for len(columns) < count {
+		columns = append(columns, center)
+	}
+	sort.Ints(columns)
+	return columns
+}
+
+func prettyColumnFree(width, column, gap int, taken map[int]bool) bool {
+	for neighbor := column - gap; neighbor <= column+gap; neighbor++ {
+		if neighbor < 0 || neighbor >= width || taken[neighbor] {
+			return false
+		}
+	}
+	return true
 }
 
 func prettyVertical(grid [][]int, column, fromRow, toRow int) {

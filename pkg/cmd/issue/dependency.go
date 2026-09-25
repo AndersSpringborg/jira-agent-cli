@@ -43,7 +43,10 @@ type dependencyGraph struct {
 	Cycles  [][]string       `json:"cycles"`
 }
 
-func buildDependencyGraph(issues []map[string]any, linkType string) (*dependencyGraph, []string) {
+// buildDependencyGraph collects blocker-to-blocked edges from Jira issue links.
+// With no linkTypes it follows every link type whose description reads as
+// "blocks" or "depends on"; otherwise only the named link types.
+func buildDependencyGraph(issues []map[string]any, linkTypes []string) (*dependencyGraph, []string) {
 	nodes := make(map[string]dependencyNode, len(issues))
 	for _, issue := range issues {
 		node := dependencyNodeFromIssue(issue, true)
@@ -61,24 +64,27 @@ func buildDependencyGraph(issues []map[string]any, linkType string) (*dependency
 			link, _ := rawLink.(map[string]any)
 			typeData, _ := link["type"].(map[string]any)
 			name, _ := typeData["name"].(string)
-			if !strings.EqualFold(name, linkType) {
+			dependsOn, isDependency := dependencyLinkSemantics(typeData)
+			if !selectedLinkType(name, isDependency, linkTypes) {
 				continue
 			}
 
+			// Jira reads every link as "inwardIssue <outward description> outwardIssue";
+			// embedded links omit the side that is the current issue.
 			inward := linkedIssue(link["inwardIssue"])
 			outward := linkedIssue(link["outwardIssue"])
-			var blocker, blocked dependencyNode
 			switch {
 			case inward.Key != "" && outward.Key != "":
-				blocker, blocked = outward, inward
 			case outward.Key != "":
-				blocker = outward
-				blocked = nodes[currentKey]
+				inward = nodes[currentKey]
 			case inward.Key != "":
-				blocker = nodes[currentKey]
-				blocked = inward
+				outward = nodes[currentKey]
 			default:
 				continue
+			}
+			blocker, blocked := inward, outward
+			if dependsOn {
+				blocker, blocked = outward, inward
 			}
 			if blocker.Key == "" || blocked.Key == "" {
 				continue
@@ -122,6 +128,36 @@ func buildDependencyGraph(issues []map[string]any, linkType string) (*dependency
 		}
 	}
 	return graph, external
+}
+
+// dependencyLinkSemantics reports whether a link type reads "inward depends on
+// outward" (dependsOn) and whether it expresses a dependency at all.
+func dependencyLinkSemantics(typeData map[string]any) (dependsOn, isDependency bool) {
+	description, _ := typeData["outward"].(string)
+	if description == "" {
+		description, _ = typeData["name"].(string)
+	}
+	description = strings.ToLower(description)
+	switch {
+	case strings.Contains(description, "depend"):
+		return true, true
+	case strings.Contains(description, "block"):
+		return false, true
+	default:
+		return false, false
+	}
+}
+
+func selectedLinkType(name string, isDependency bool, linkTypes []string) bool {
+	if len(linkTypes) == 0 {
+		return isDependency
+	}
+	for _, linkType := range linkTypes {
+		if strings.EqualFold(name, linkType) {
+			return true
+		}
+	}
+	return false
 }
 
 func linkedIssue(value any) dependencyNode {
@@ -316,7 +352,7 @@ type dependencyOptions struct {
 	epic       string
 	labels     []string
 	maxResults int
-	linkType   string
+	linkTypes  []string
 }
 
 func (o *dependencyOptions) bindFlags(cmd *cobra.Command) {
@@ -327,7 +363,7 @@ func (o *dependencyOptions) bindFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.epic, "epic", "", "Filter by epic issue key")
 	cmd.Flags().StringSliceVar(&o.labels, "label", nil, "Filter by label (repeatable)")
 	cmd.Flags().IntVar(&o.maxResults, "max", 50, "Max scoped issues")
-	cmd.Flags().StringVar(&o.linkType, "link-type", "Blocks", "Jira dependency link type")
+	cmd.Flags().StringSliceVar(&o.linkTypes, "link-type", nil, `Jira dependency link type name (repeatable; default: every "blocks" or "depends on" link type)`)
 }
 
 func (o *dependencyOptions) jql(ctx *config.Context) (string, error) {
@@ -401,7 +437,7 @@ func loadDependencyGraph(f *cmdutil.Factory, opts *dependencyOptions) (*dependen
 			issues = append(issues, issue)
 		}
 	}
-	graph, external := buildDependencyGraph(issues, opts.linkType)
+	graph, external := buildDependencyGraph(issues, opts.linkTypes)
 	for _, key := range external {
 		issue, getErr := client.GetIssue(key, []string{"summary", "status", "resolution", "assignee", "priority"})
 		if getErr != nil {
@@ -458,15 +494,15 @@ func newReadyCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "List unresolved issues with no unresolved blockers",
 		Long: `List actionable issues in the active project/context dependency graph.
 
-An issue is ready when it has no unresolved incoming Blocks links. A linked
-blocker is resolved only when its Jira resolution field is set. Results are
-ordered by how many unresolved issues they directly unblock, then by key.
+An issue is ready when it has no unresolved blockers: issues that block it or
+that it depends on. A linked blocker is resolved only when its Jira
+resolution field is set. Results are ordered by how many unresolved issues they directly unblock, then by key.
 
 Examples:
   jira issue ready
   jira issue ready --project PROJ
   jira issue ready --label backend --format markdown
-  jira issue ready --link-type Depends`,
+  jira issue ready --link-type Depend`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			graph, err := loadDependencyGraph(f, opts)
@@ -513,7 +549,7 @@ Examples:
   jira issue graph-pretty
   jira issue graph-pretty --project PROJ
   jira issue graph-pretty --status "Define,To Do,Backlog"
-  jira issue graph-pretty --label backend --link-type Depends`,
+  jira issue graph-pretty --label backend --link-type Depend`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			graph, err := loadDependencyGraph(f, opts)
@@ -534,7 +570,9 @@ func newGraphCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Display the issue dependency graph",
 		Long: `Display a directed dependency graph for the active project/context.
 
-Edges point from blocker to blocked issue. The stable JSON object contains
+Edges point from blocker to blocked issue. By default every link type described
+as "blocks" or "depends on" is followed; a dependent issue is blocked by the
+issue it depends on. Pass --link-type to restrict the graph to named link types. The stable JSON object contains
 nodes, edges, ready issue keys, blocked issues with their blockers, and cycles.
 Linked issues outside the selected scope are included with inScope=false.
 
@@ -542,7 +580,7 @@ Examples:
   jira issue graph
   jira issue graph --project PROJ | jq '.ready'
   jira issue graph --format markdown
-  jira issue graph --link-type Depends`,
+  jira issue graph --link-type Depend`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			graph, err := loadDependencyGraph(f, opts)
