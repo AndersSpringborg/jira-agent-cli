@@ -28,7 +28,7 @@ func TestBuildDependencyGraph(t *testing.T) {
 		}),
 	}
 
-	graph, external := buildDependencyGraph(issues, "Blocks")
+	graph, external := buildDependencyGraph(issues, nil)
 	require.Empty(t, external)
 	assert.Equal(t, []string{"PROJ-1", "PROJ-4"}, graph.Ready)
 	assert.Equal(t, []dependencyEdge{
@@ -41,19 +41,63 @@ func TestBuildDependencyGraph(t *testing.T) {
 }
 
 func TestBuildDependencyGraphUnderstandsJiraLinkDirection(t *testing.T) {
+	// Given PROJ-1 "blocks" PROJ-2, as Jira embeds it on both issues
 	issues := []map[string]any{
 		mockIssue("PROJ-1", "Blocker", nil, []any{
-			mockPartialLink("Blocks", "inwardIssue", "PROJ-2"),
+			mockPartialLink("Blocks", "outwardIssue", "PROJ-2"),
 		}),
 		mockIssue("PROJ-2", "Blocked", nil, []any{
-			mockPartialLink("Blocks", "outwardIssue", "PROJ-1"),
+			mockPartialLink("Blocks", "inwardIssue", "PROJ-1"),
 		}),
 	}
 
-	graph, external := buildDependencyGraph(issues, "Blocks")
+	graph, external := buildDependencyGraph(issues, nil)
 	require.Empty(t, external)
 	assert.Equal(t, []dependencyEdge{{From: "PROJ-1", To: "PROJ-2", Type: "Blocks"}}, graph.Edges)
 	assert.Equal(t, []string{"PROJ-1"}, graph.Ready)
+}
+
+func TestBuildDependencyGraphFollowsDependsOnLinks(t *testing.T) {
+	// Given PROJ-2 "depends on" PROJ-1, as Jira embeds it on both issues
+	issues := []map[string]any{
+		mockIssue("PROJ-1", "Prerequisite", nil, []any{
+			mockDependsOnLink("inwardIssue", "PROJ-2"),
+		}),
+		mockIssue("PROJ-2", "Dependent", nil, []any{
+			mockDependsOnLink("outwardIssue", "PROJ-1"),
+		}),
+	}
+
+	graph, external := buildDependencyGraph(issues, nil)
+	require.Empty(t, external)
+	assert.Equal(t, []dependencyEdge{{From: "PROJ-1", To: "PROJ-2", Type: "Depend"}}, graph.Edges)
+	assert.Equal(t, []string{"PROJ-1"}, graph.Ready)
+}
+
+func TestBuildDependencyGraphIgnoresNonDependencyLinksByDefault(t *testing.T) {
+	issues := []map[string]any{
+		mockIssue("PROJ-1", "One", nil, []any{
+			mockTypedLink("Related", "relates to", "Relates", "outwardIssue", "PROJ-2"),
+		}),
+		mockIssue("PROJ-2", "Two", nil, nil),
+	}
+
+	graph, _ := buildDependencyGraph(issues, nil)
+	assert.Empty(t, graph.Edges)
+}
+
+func TestBuildDependencyGraphRestrictsToRequestedLinkTypes(t *testing.T) {
+	issues := []map[string]any{
+		mockIssue("PROJ-1", "One", nil, []any{
+			mockLink("Blocks", "PROJ-1", "PROJ-2"),
+			mockDependsOnLink("inwardIssue", "PROJ-3"),
+		}),
+		mockIssue("PROJ-2", "Two", nil, nil),
+		mockIssue("PROJ-3", "Three", nil, nil),
+	}
+
+	graph, _ := buildDependencyGraph(issues, []string{"depend"})
+	assert.Equal(t, []dependencyEdge{{From: "PROJ-1", To: "PROJ-3", Type: "Depend"}}, graph.Edges)
 }
 
 func TestBuildDependencyGraphRetainsExternalBlockers(t *testing.T) {
@@ -63,7 +107,7 @@ func TestBuildDependencyGraphRetainsExternalBlockers(t *testing.T) {
 		}),
 	}
 
-	graph, external := buildDependencyGraph(issues, "blocks")
+	graph, external := buildDependencyGraph(issues, []string{"blocks"})
 	assert.Equal(t, []string{"OTHER-9"}, external)
 	assert.Empty(t, graph.Ready)
 	require.Len(t, graph.Nodes, 2)
@@ -74,7 +118,7 @@ func TestBuildDependencyGraphRetainsExternalBlockers(t *testing.T) {
 func TestExternalResolvedBlockerMakesScopedIssueReady(t *testing.T) {
 	graph, external := buildDependencyGraph([]map[string]any{
 		mockIssue("PROJ-1", "Feature", nil, []any{mockLink("Blocks", "OTHER-9", "PROJ-1")}),
-	}, "Blocks")
+	}, nil)
 	require.Equal(t, []string{"OTHER-9"}, external)
 
 	graph.updateExternal(mockIssue("OTHER-9", "Finished prerequisite", map[string]any{"name": "Done"}, nil))
@@ -83,7 +127,7 @@ func TestExternalResolvedBlockerMakesScopedIssueReady(t *testing.T) {
 }
 
 func TestEmptyDependencyGraphUsesJSONArrays(t *testing.T) {
-	graph, _ := buildDependencyGraph(nil, "Blocks")
+	graph, _ := buildDependencyGraph(nil, nil)
 	encoded, err := json.Marshal(graph)
 	require.NoError(t, err)
 	assert.JSONEq(t, `{"nodes":[],"edges":[],"ready":[],"blocked":[],"cycles":[]}`, string(encoded))
@@ -95,7 +139,7 @@ func TestBuildDependencyGraphFindsCycles(t *testing.T) {
 		mockIssue("PROJ-2", "Two", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-1")}),
 	}
 
-	graph, _ := buildDependencyGraph(issues, "Blocks")
+	graph, _ := buildDependencyGraph(issues, nil)
 	assert.Equal(t, [][]string{{"PROJ-1", "PROJ-2"}}, graph.Cycles)
 	assert.Empty(t, graph.Ready)
 }
@@ -111,7 +155,7 @@ func TestReadyNodesPrioritizeIssuesThatUnblockMoreWork(t *testing.T) {
 		mockIssue("PROJ-4", "Four", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-4")}),
 	}
 
-	graph, _ := buildDependencyGraph(issues, "Blocks")
+	graph, _ := buildDependencyGraph(issues, nil)
 	ready := graph.readyNodes()
 	require.Len(t, ready, 2)
 	assert.Equal(t, "PROJ-1", ready[0].Key)
@@ -128,7 +172,7 @@ func TestBuildPrettyLayoutLayersJoinedDependency(t *testing.T) {
 		mockIssue("PROJ-2", "Backend", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-4")}),
 		mockIssue("PROJ-3", "Frontend", nil, []any{mockLink("Blocks", "PROJ-3", "PROJ-4")}),
 		mockIssue("PROJ-4", "Launch", nil, nil),
-	}, "Blocks")
+	}, nil)
 
 	layout := buildPrettyLayout(graph)
 	require.Len(t, layout.components, 1)
@@ -150,7 +194,7 @@ func TestDependencyGraphPrettySimpleChain(t *testing.T) {
 		mockIssue("PROJ-1", "Foundation", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
 		mockIssue("PROJ-2", "API", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-3")}),
 		mockIssue("PROJ-3", "Release", nil, nil),
-	}, "Blocks")
+	}, nil)
 
 	assert.Equal(t, `Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
@@ -175,7 +219,7 @@ func TestDependencyGraphPrettyBranchAndSharedDependency(t *testing.T) {
 		mockIssue("PROJ-2", "Backend", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-4")}),
 		mockIssue("PROJ-3", "Frontend", nil, []any{mockLink("Blocks", "PROJ-3", "PROJ-4")}),
 		mockIssue("PROJ-4", "Launch", nil, nil),
-	}, "Blocks")
+	}, nil)
 
 	assert.Equal(t, `Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
@@ -193,12 +237,38 @@ Component 1
 `, renderDependencyGraphPretty(graph))
 }
 
+func TestDependencyGraphPrettyKeepsCrossingEdgesDistinct(t *testing.T) {
+	// Given PROJ-1 blocks PROJ-3 and PROJ-4, and PROJ-2 blocks only PROJ-3
+	graph, _ := buildDependencyGraph([]map[string]any{
+		mockIssue("PROJ-1", "API keys", nil, []any{
+			mockLink("Blocks", "PROJ-1", "PROJ-3"),
+			mockLink("Blocks", "PROJ-1", "PROJ-4"),
+		}),
+		mockIssue("PROJ-2", "Routes", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-3")}),
+		mockIssue("PROJ-3", "Streaming", nil, nil),
+		mockIssue("PROJ-4", "Models", nil, nil),
+	}, nil)
+
+	// Then every edge has its own ports and lane, so PROJ-2 never appears to reach PROJ-4
+	assert.Equal(t, `Dependency graph (blocker ──▶ blocked)
+Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
+
+Component 1
+   ● PROJ-1      ● PROJ-2
+      │ │            │
+      │ └────────────┼─┐
+      │   ┌──────────┘ │
+      ▼   ▼            ▼
+   ○ PROJ-3      ○ PROJ-4
+`, renderDependencyGraphPretty(graph))
+}
+
 func TestDependencyGraphPrettyDisconnectedComponents(t *testing.T) {
 	graph, _ := buildDependencyGraph([]map[string]any{
 		mockIssue("PROJ-1", "First", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
 		mockIssue("PROJ-2", "Second", nil, nil),
 		mockIssue("PROJ-9", "Independent", nil, nil),
-	}, "Blocks")
+	}, nil)
 
 	assert.Equal(t, `Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
@@ -217,7 +287,7 @@ Component 2
 func TestDependencyGraphPrettyResolvedExternalBlocker(t *testing.T) {
 	graph, external := buildDependencyGraph([]map[string]any{
 		mockIssue("PROJ-1", "Feature", nil, []any{mockLink("Blocks", "OTHER-9", "PROJ-1")}),
-	}, "Blocks")
+	}, nil)
 	require.Equal(t, []string{"OTHER-9"}, external)
 	graph.updateExternal(mockIssue("OTHER-9", "Finished prerequisite", map[string]any{"name": "Done"}, nil))
 
@@ -236,7 +306,7 @@ func TestDependencyGraphPrettyCycle(t *testing.T) {
 	graph, _ := buildDependencyGraph([]map[string]any{
 		mockIssue("PROJ-1", "One", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
 		mockIssue("PROJ-2", "Two", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-1")}),
-	}, "Blocks")
+	}, nil)
 
 	assert.Equal(t, `Dependency graph (blocker ──▶ blocked)
 Legend: ● ready  ○ blocked  ✓ resolved  ◇ external  ↻ cycle
@@ -251,7 +321,7 @@ func TestDependencyGraphPrettyPreservesCycleEdges(t *testing.T) {
 		mockIssue("PROJ-1", "One", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
 		mockIssue("PROJ-2", "Two", nil, []any{mockLink("Blocks", "PROJ-2", "PROJ-3")}),
 		mockIssue("PROJ-3", "Three", nil, []any{mockLink("Blocks", "PROJ-3", "PROJ-1")}),
-	}, "Blocks")
+	}, nil)
 
 	assert.Contains(t, renderDependencyGraphPretty(graph),
 		"↻ {○ PROJ-1 → ○ PROJ-2, ○ PROJ-2 → ○ PROJ-3, ○ PROJ-3 → ○ PROJ-1}")
@@ -261,7 +331,7 @@ func TestDependencyGraphMarkdownIsStructured(t *testing.T) {
 	graph, _ := buildDependencyGraph([]map[string]any{
 		mockIssue("PROJ-1", "Foundation", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
 		mockIssue("PROJ-2", "Feature", nil, []any{mockLink("Blocks", "PROJ-1", "PROJ-2")}),
-	}, "Blocks")
+	}, nil)
 	var rendered bytes.Buffer
 	driver := output.NewDriverWithWriter(output.FormatMarkdown, &rendered)
 
@@ -317,10 +387,22 @@ func mockPartialLink(linkType, direction, key string) map[string]any {
 	}
 }
 
+func mockDependsOnLink(direction, key string) map[string]any {
+	return mockTypedLink("Depend", "is dependent off", "depends on", direction, key)
+}
+
+func mockTypedLink(name, inward, outward, direction, key string) map[string]any {
+	return map[string]any{
+		"type":    map[string]any{"name": name, "inward": inward, "outward": outward},
+		direction: map[string]any{"key": key},
+	}
+}
+
+// mockLink is a full Jira link: inwardIssue <outward description> outwardIssue.
 func mockLink(linkType, blocker, blocked string) map[string]any {
 	return map[string]any{
 		"type":         map[string]any{"name": linkType},
-		"outwardIssue": map[string]any{"key": blocker},
-		"inwardIssue":  map[string]any{"key": blocked},
+		"inwardIssue":  map[string]any{"key": blocker},
+		"outwardIssue": map[string]any{"key": blocked},
 	}
 }
