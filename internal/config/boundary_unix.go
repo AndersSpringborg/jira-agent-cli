@@ -15,12 +15,12 @@ type OwnerGuard struct {
 	Privileged func() bool
 }
 
-func defaultContextGuard() ContextGuard {
+func defaultGuard() Guard {
 	return OwnerGuard{TrustedUID: 0, Privileged: func() bool { return os.Geteuid() == 0 }}
 }
 
-func systemContextDir() string {
-	return "/etc/jira-cli/contexts"
+func systemBoundaryDir() string {
+	return "/etc/jira-cli/boundaries"
 }
 
 func (g OwnerGuard) IsPrivileged() bool {
@@ -33,17 +33,17 @@ func (g OwnerGuard) CheckTrusted(path string) error {
 		return err
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
-		return fmt.Errorf("context path %s is a symlink", path)
+		return fmt.Errorf("boundary path %s is a symlink", path)
 	}
 	stat, ok := info.Sys().(*syscall.Stat_t)
 	if !ok {
 		return fmt.Errorf("cannot read owner of %s", path)
 	}
 	if stat.Uid != g.TrustedUID {
-		return fmt.Errorf("context path %s is owned by uid %d, not uid %d", path, stat.Uid, g.TrustedUID)
+		return fmt.Errorf("boundary path %s is owned by uid %d, not uid %d", path, stat.Uid, g.TrustedUID)
 	}
 	if info.Mode().Perm()&0o022 != 0 {
-		return fmt.Errorf("context path %s is group- or world-writable", path)
+		return fmt.Errorf("boundary path %s is group- or world-writable", path)
 	}
 	return nil
 }

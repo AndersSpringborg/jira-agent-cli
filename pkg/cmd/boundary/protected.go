@@ -1,4 +1,4 @@
-package context
+package boundary
 
 import (
 	"fmt"
@@ -13,31 +13,27 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// openForChange returns the context store and its contents, failing first —
-// before any other validation — when the caller lacks sudo, so an agent sees
-// the guidance immediately.
-func openForChange(f *cmdutil.Factory, cmd *cobra.Command, args []string) (*config.ContextStore, *config.ContextFile, error) {
-	store, err := f.ContextStore()
+// openForChange returns the boundary store, failing first — before any other
+// validation — when the caller lacks sudo, so an agent sees the guidance
+// immediately.
+func openForChange(f *cmdutil.Factory, cmd *cobra.Command, args []string) (*config.BoundaryStore, error) {
+	store, err := f.BoundaryStore()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	if err := store.RequirePrivilege(); err != nil {
-		return nil, nil, fmt.Errorf(`%w
+		return nil, fmt.Errorf(`%w
 
-The context limits what AI agents can see and change in Jira, so only the user may change it.
+The boundary limits which Jira issues AI agents can see and change, so only the user may change it.
 AI agents: Ask the user to run this command themselves. Never run it yourself with sudo,
-and never try to bypass or weaken this protection (editing context files, changing file
+and never try to bypass or weaken this protection (editing boundary files, changing file
 permissions or ownership, or reusing cached sudo credentials).
 
 Ask the user to run this command:
 
   %s`, err, privilegedCommand(cmd, args))
 	}
-	contexts, err := store.Load()
-	if err != nil {
-		return nil, nil, err
-	}
-	return store, contexts, nil
+	return store, nil
 }
 
 // privilegedCommand reconstructs the invocation, prefixed for elevation.

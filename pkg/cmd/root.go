@@ -8,6 +8,7 @@ import (
 	"AndersSpringborg/jira-cli/pkg/cmd/api"
 	"AndersSpringborg/jira-cli/pkg/cmd/auth"
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
+	"AndersSpringborg/jira-cli/pkg/cmd/boundary"
 	"AndersSpringborg/jira-cli/pkg/cmd/configcmd"
 	cmdcontext "AndersSpringborg/jira-cli/pkg/cmd/context"
 	"AndersSpringborg/jira-cli/pkg/cmd/feedback"
@@ -83,6 +84,7 @@ Examples:
 	cmd.AddCommand(api.NewCmd(f))
 	cmd.AddCommand(auth.NewCmd(f))
 	cmd.AddCommand(configcmd.NewCmd(f))
+	cmd.AddCommand(boundary.NewCmd(f))
 	cmd.AddCommand(cmdcontext.NewCmd(f))
 	cmd.AddCommand(issue.NewCmd(f))
 	cmd.AddCommand(board.NewCmd(f))

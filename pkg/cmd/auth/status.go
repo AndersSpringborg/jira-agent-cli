@@ -18,10 +18,7 @@ func newStatusCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profileName, err := f.ResolveProfileName(cfg)
-			if err != nil {
-				return err
-			}
+			profileName := f.ResolveProfileName(cfg)
 
 			token, err := auth.GetToken(profileName)
 			if err != nil {

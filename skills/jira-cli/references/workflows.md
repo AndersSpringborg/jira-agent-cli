@@ -33,11 +33,9 @@ jira issue move PROJ-456 "Done"
 ## Triage: bugs I should look at next
 
 ```bash
-# Check the active context; everything below is scoped by it.
-# Changing it needs sudo: ask the user to run
-#   sudo jira context set work --project PROJ --display markdown && sudo jira context use work
-# Never run sudo yourself.
-jira context show
+# Set and activate a named context so everything below is project-scoped
+jira context set work --project PROJ --display markdown
+jira context use work
 
 # Open bugs assigned to me, sorted by priority
 jira search jql \

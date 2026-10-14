@@ -20,6 +20,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"AndersSpringborg/jira-cli/internal/config"
 )
 
 // Client is a Jira REST API client that returns untyped JSON data.
@@ -31,6 +33,7 @@ type Client struct {
 	authType   string // "basic" or "pat"/"bearer"
 	strategy   Strategy
 	debug      io.Writer
+	boundary   *config.Boundary
 }
 
 // NewClient creates a new Jira client.
@@ -97,11 +100,19 @@ func (c *Client) GetMyself() (map[string]any, error) {
 // GetIssue fetches a single issue by key.
 // fields optionally limits which fields are returned.
 func (c *Client) GetIssue(key string, fields []string) (map[string]any, error) {
+	if err := c.requireIssues(key); err != nil {
+		return nil, err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	if len(fields) > 0 {
 		path += "?fields=" + strings.Join(fields, ",")
 	}
-	return c.getJSON(path)
+	data, err := c.getJSON(path)
+	if err != nil {
+		return nil, err
+	}
+	c.redact(data)
+	return data, nil
 }
 
 // DownloadAttachment downloads attachment content from a URL returned by Jira.
@@ -186,6 +197,9 @@ func (c *Client) CreateIssue(project, summary, issueType, description, priority 
 		fields["fixVersions"] = versions
 	}
 
+	if err := c.checkNewIssue(fields); err != nil {
+		return nil, err
+	}
 	body := map[string]any{
 		"fields": fields,
 	}
@@ -194,6 +208,9 @@ func (c *Client) CreateIssue(project, summary, issueType, description, priority 
 
 // UpdateIssue updates an existing issue's fields.
 func (c *Client) UpdateIssue(key string, fields map[string]any) error {
+	if err := c.checkEdit(key, fields, nil); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	if desc, ok := fields["description"].(string); ok && desc != "" {
 		fields["description"] = c.strategy.TextBody(desc)
@@ -207,6 +224,9 @@ func (c *Client) UpdateIssue(key string, fields map[string]any) error {
 // description, priority, custom fields) and "update" for array operations
 // (add/remove on labels, components, fixVersions).
 func (c *Client) EditIssue(key string, fields, update map[string]any) error {
+	if err := c.checkEdit(key, fields, update); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	if desc, ok := fields["description"].(string); ok && desc != "" {
 		fields["description"] = c.strategy.TextBody(desc)
@@ -223,6 +243,9 @@ func (c *Client) EditIssue(key string, fields, update map[string]any) error {
 
 // DeleteIssue deletes an issue by key.
 func (c *Client) DeleteIssue(key string) error {
+	if err := c.requireIssues(key); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s", key))
 	return c.delete(path)
 }
@@ -260,6 +283,9 @@ func (c *Client) CloneIssue(key string, overrides map[string]any) (map[string]an
 	for k, v := range overrides {
 		newFields[k] = v
 	}
+	if err := c.checkNewIssue(newFields); err != nil {
+		return nil, err
+	}
 
 	body := map[string]any{"fields": newFields}
 	return c.postJSON(c.strategy.APIPath("issue"), body)
@@ -268,12 +294,18 @@ func (c *Client) CloneIssue(key string, overrides map[string]any) (map[string]an
 // AssignIssue assigns an issue to a user.
 // Pass accountID for cloud, name for server. Pass empty strings for unassigned.
 func (c *Client) AssignIssue(key, accountID, name, _ string) error {
+	if err := c.requireIssues(key); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/assignee", key))
 	return c.putNoContent(path, c.strategy.AssignBody(accountID, name))
 }
 
 // GetIssueTransitions returns available transitions for an issue.
 func (c *Client) GetIssueTransitions(key string) ([]map[string]any, error) {
+	if err := c.requireIssues(key); err != nil {
+		return nil, err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/transitions", key))
 	data, err := c.getJSON(path)
 	if err != nil {
@@ -299,6 +331,9 @@ func (c *Client) AssigneeFieldValue(accountID, name string) map[string]any {
 
 // TransitionIssueWithUpdates moves an issue and optionally sets fields/update operations.
 func (c *Client) TransitionIssueWithUpdates(key, transitionID string, fields, update map[string]any) error {
+	if err := c.checkEdit(key, fields, update); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/transitions", key))
 	body := map[string]any{
 		"transition": map[string]any{"id": transitionID},
@@ -315,6 +350,9 @@ func (c *Client) TransitionIssueWithUpdates(key, transitionID string, fields, up
 
 // AddComment adds a comment to an issue.
 func (c *Client) AddComment(key, body string) error {
+	if err := c.requireIssues(key); err != nil {
+		return err
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("issue/%s/comment", key))
 	payload := map[string]any{
 		"body": c.strategy.CommentBody(body),
@@ -325,6 +363,9 @@ func (c *Client) AddComment(key, body string) error {
 
 // LinkIssues creates a link between two issues.
 func (c *Client) LinkIssues(inward, outward, linkType string) error {
+	if err := c.requireIssues(inward, outward); err != nil {
+		return err
+	}
 	body := map[string]any{
 		"inwardIssue":  map[string]any{"key": inward},
 		"outwardIssue": map[string]any{"key": outward},
@@ -350,6 +391,15 @@ func (c *Client) GetIssueLinks(key string) ([]map[string]any, error) {
 // DeleteIssueLink deletes an issue link by ID.
 func (c *Client) DeleteIssueLink(linkID string) error {
 	path := c.strategy.APIPath(fmt.Sprintf("issueLink/%s", linkID))
+	if c.boundary != nil {
+		link, err := c.getJSON(path)
+		if err != nil {
+			return err
+		}
+		if err := c.requireIssues(projectKey(link["inwardIssue"]), projectKey(link["outwardIssue"])); err != nil {
+			return err
+		}
+	}
 	return c.delete(path)
 }
 
@@ -362,7 +412,22 @@ func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...stri
 	if len(extraFields) > 0 {
 		fields += "," + strings.Join(extraFields, ",")
 	}
+	if c.boundary != nil {
+		fields += ",project"
+	}
+	jql, err := c.scopeJQL(jql)
+	if err != nil {
+		return nil, err
+	}
+	data, err := c.search(jql, startAt, maxResults, fields)
+	if err != nil {
+		return nil, err
+	}
+	return c.confine(data), nil
+}
 
+// search runs jql unscoped, following Cloud page tokens up to maxResults.
+func (c *Client) search(jql string, startAt, maxResults int, fields string) (map[string]any, error) {
 	searchPage := func(pageSize int, nextPageToken string) (map[string]any, error) {
 		path := fmt.Sprintf("%s?jql=%s&startAt=%d&maxResults=%d&fields=%s",
 			c.strategy.SearchPath(), urlEncode(jql), startAt, pageSize, fields)
@@ -407,10 +472,21 @@ func (c *Client) Search(jql string, startAt, maxResults int, extraFields ...stri
 // changelog, so callers can inspect change history. Used by `me audit` to
 // reconstruct a user's activity from issue history.
 func (c *Client) SearchWithChangelog(jql string, maxResults int) (map[string]any, error) {
+	jql, err := c.scopeJQL(jql)
+	if err != nil {
+		return nil, err
+	}
+	fields := "key,summary,status,issuetype,created,updated"
+	if c.boundary != nil {
+		fields += ",project,labels"
+	}
 	path := fmt.Sprintf("%s?jql=%s&maxResults=%d&fields=%s&expand=changelog",
-		c.strategy.SearchPath(), urlEncode(jql), maxResults,
-		"key,summary,status,issuetype,created,updated")
-	return c.getJSON(path)
+		c.strategy.SearchPath(), urlEncode(jql), maxResults, fields)
+	data, err := c.getJSON(path)
+	if err != nil {
+		return nil, err
+	}
+	return c.confine(data), nil
 }
 
 // --- Boards ---
@@ -443,10 +519,18 @@ func (c *Client) GetBoard(boardID int) (map[string]any, error) {
 // FetchBoardIssues fetches issues for a board.
 func (c *Client) FetchBoardIssues(boardID, startAt, maxResults int, jql string) (map[string]any, error) {
 	path := fmt.Sprintf("/rest/agile/1.0/board/%d/issue?startAt=%d&maxResults=%d", boardID, startAt, maxResults)
-	if jql != "" {
-		path += "&jql=" + jql
+	jql, err := c.scopeJQL(jql)
+	if err != nil {
+		return nil, err
 	}
-	return c.getJSON(path)
+	if jql != "" {
+		path += "&jql=" + urlEncode(jql)
+	}
+	data, err := c.getJSON(path)
+	if err != nil {
+		return nil, err
+	}
+	return c.confine(data), nil
 }
 
 // --- Sprints ---
@@ -473,7 +557,18 @@ func (c *Client) GetSprint(sprintID int) (map[string]any, error) {
 // GetSprintIssues fetches issues in a sprint.
 func (c *Client) GetSprintIssues(sprintID int) (map[string]any, error) {
 	path := fmt.Sprintf("/rest/agile/1.0/sprint/%d/issue", sprintID)
-	return c.getJSON(path)
+	if c.boundary != nil {
+		jql, err := c.scopeJQL("")
+		if err != nil {
+			return nil, err
+		}
+		path += "?jql=" + urlEncode(jql)
+	}
+	data, err := c.getJSON(path)
+	if err != nil {
+		return nil, err
+	}
+	return c.confine(data), nil
 }
 
 // StartSprint starts a sprint with the given payload.
@@ -490,6 +585,9 @@ func (c *Client) CloseSprint(sprintID int, payload map[string]any) error {
 
 // MoveIssuesToSprint moves issues to a sprint.
 func (c *Client) MoveIssuesToSprint(sprintID int, issueKeys []string) error {
+	if err := c.requireIssues(issueKeys...); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/rest/agile/1.0/sprint/%d/issue", sprintID)
 	body := map[string]any{"issues": issueKeys}
 	_, err := c.postJSON(path, body)
@@ -500,11 +598,24 @@ func (c *Client) MoveIssuesToSprint(sprintID int, issueKeys []string) error {
 
 // ListProjects returns all accessible projects.
 func (c *Client) ListProjects() ([]map[string]any, error) {
-	return c.getJSONArray(c.strategy.APIPath("project"))
+	projects, err := c.getJSONArray(c.strategy.APIPath("project"))
+	if err != nil || c.boundary == nil {
+		return projects, err
+	}
+	kept := make([]map[string]any, 0, len(projects))
+	for _, p := range projects {
+		if c.boundary.AllowsProject(projectKey(p)) {
+			kept = append(kept, p)
+		}
+	}
+	return kept, nil
 }
 
 // GetProject fetches a single project by key.
 func (c *Client) GetProject(projectKey string) (map[string]any, error) {
+	if c.boundary != nil && !c.boundary.AllowsProject(projectKey) {
+		return nil, outside("project %q", projectKey)
+	}
 	path := c.strategy.APIPath(fmt.Sprintf("project/%s", projectKey))
 	return c.getJSON(path)
 }
@@ -625,6 +736,10 @@ func (c *Client) delete(path string) error {
 // so any REST resource is reachable — including ones this CLI has no
 // predefined command for. Extra headers override the defaults.
 func (c *Client) Raw(method, path string, body []byte, headers map[string]string) (*http.Response, error) {
+	if c.boundary != nil {
+		return nil, fmt.Errorf("raw API requests cannot be confined to the boundary, so they are %w. %s "+
+			"The user can run this command themselves with sudo", ErrOutsideBoundary, boundaryHint)
+	}
 	return c.do(method, path, body, headers)
 }
 

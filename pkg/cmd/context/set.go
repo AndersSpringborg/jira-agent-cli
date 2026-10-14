@@ -27,27 +27,20 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Create or update a named context",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			store, contexts, err := openForChange(f, cmd, args)
-			if err != nil {
-				return err
-			}
 			cfg, err := f.LoadConfig()
 			if err != nil {
 				return err
 			}
 
 			name := args[0]
-			ctx := contexts.Get(name)
+			ctx := config.GetContext(cfg, name)
 			if ctx == nil {
 				ctx = &config.Context{}
 			}
 
 			profileChanged := cmd.Flags().Changed("profile")
 			if ctx.Profile == "" || profileChanged {
-				ctx.Profile, err = f.ResolveProfileName(cfg)
-				if err != nil {
-					return err
-				}
+				ctx.Profile = f.ResolveProfileName(cfg)
 			}
 			if config.GetProfile(cfg, ctx.Profile) == nil {
 				return fmt.Errorf("profile '%s' not found", ctx.Profile)
@@ -81,12 +74,12 @@ func newSetCmd(f *cmdutil.Factory) *cobra.Command {
 				ctx.Display = display
 			}
 
-			contexts.Upsert(name, ctx)
-			if err := store.Save(contexts); err != nil {
+			config.UpsertContext(cfg, name, ctx)
+			if err := config.Save(cfg); err != nil {
 				return err
 			}
 
-			driver := f.DisplayDriverTo(cmd, cmd.OutOrStdout())
+			driver := f.DisplayDriver(cmd)
 			return driver.Message("Context '%s' updated.", name)
 		},
 	}

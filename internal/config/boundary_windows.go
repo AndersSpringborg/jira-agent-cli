@@ -14,16 +14,16 @@ import (
 // only elevated processes change them.
 type elevationGuard struct{}
 
-func defaultContextGuard() ContextGuard {
+func defaultGuard() Guard {
 	return elevationGuard{}
 }
 
-func systemContextDir() string {
+func systemBoundaryDir() string {
 	programData, err := windows.KnownFolderPath(windows.FOLDERID_ProgramData, 0)
 	if err != nil {
 		programData = `C:\ProgramData`
 	}
-	return filepath.Join(programData, "jira-cli", "contexts")
+	return filepath.Join(programData, "jira-cli", "boundaries")
 }
 
 func (elevationGuard) IsPrivileged() bool {
@@ -40,7 +40,7 @@ func (elevationGuard) CheckTrusted(path string) error {
 		return err
 	}
 	if !owner.IsWellKnown(windows.WinBuiltinAdministratorsSid) && !owner.IsWellKnown(windows.WinLocalSystemSid) {
-		return fmt.Errorf("context path %s is owned by %s, not Administrators or SYSTEM", path, owner.String())
+		return fmt.Errorf("boundary path %s is owned by %s, not Administrators or SYSTEM", path, owner.String())
 	}
 	return nil
 }

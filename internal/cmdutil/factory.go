@@ -17,44 +17,41 @@ type Factory struct {
 	Profile     string
 	Debug       bool
 	DebugWriter func() io.Writer
-	// Contexts overrides the protected system context store; nil uses
-	// config.DefaultContextStore.
-	Contexts *config.ContextStore
+	// Boundaries overrides the protected system boundary store; nil uses
+	// config.DefaultBoundaryStore.
+	Boundaries *config.BoundaryStore
+}
+
+func (f *Factory) BoundaryStore() (*config.BoundaryStore, error) {
+	if f.Boundaries != nil {
+		return f.Boundaries, nil
+	}
+	return config.DefaultBoundaryStore()
+}
+
+// clientBoundary returns the boundary every Jira request must stay inside.
+// Privileged callers (the user via sudo) are not confined.
+func (f *Factory) clientBoundary() (*config.Boundary, error) {
+	store, err := f.BoundaryStore()
+	if err != nil {
+		return nil, fmt.Errorf("open boundary store: %w", err)
+	}
+	if store.RequirePrivilege() == nil {
+		return nil, nil
+	}
+	return store.Load()
 }
 
 func (f *Factory) LoadConfig() (*config.Config, error) {
 	return config.Load()
 }
 
-func (f *Factory) ContextStore() (*config.ContextStore, error) {
-	if f.Contexts != nil {
-		return f.Contexts, nil
-	}
-	return config.DefaultContextStore()
-}
-
-func (f *Factory) LoadContexts() (*config.ContextFile, error) {
-	store, err := f.ContextStore()
-	if err != nil {
-		return nil, fmt.Errorf("open context store: %w", err)
-	}
-	return store.Load()
-}
-
-func (f *Factory) ResolveProfileName(cfg *config.Config) (string, error) {
-	contexts, err := f.LoadContexts()
-	if err != nil {
-		return "", err
-	}
-	return f.resolveProfileName(cfg, contexts.Active()), nil
-}
-
-func (f *Factory) resolveProfileName(cfg *config.Config, active *config.Context) string {
+func (f *Factory) ResolveProfileName(cfg *config.Config) string {
 	if f.Profile != "" || os.Getenv("JIRABOT_PROFILE") != "" {
 		return config.ResolveProfileName(cfg, f.Profile)
 	}
-	if active != nil && active.Profile != "" {
-		return active.Profile
+	if ctx := config.GetActiveContext(cfg); ctx != nil && ctx.Profile != "" {
+		return ctx.Profile
 	}
 	return config.ResolveProfileName(cfg, "")
 }
@@ -64,12 +61,7 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
-	contexts, err := f.LoadContexts()
-	if err != nil {
-		return nil, err
-	}
-	active := contexts.Active()
-	profileName := f.resolveProfileName(cfg, active)
+	profileName := f.ResolveProfileName(cfg)
 	profile := config.GetProfile(cfg, profileName)
 	if profile == nil {
 		profile = &config.Profile{Name: profileName}
@@ -77,7 +69,9 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 		profileCopy := *profile
 		profile = &profileCopy
 	}
-	profile.Context = active
+	if ctx := config.GetActiveContext(cfg); ctx != nil {
+		profile.Context = ctx
+	}
 	return profile, nil
 }
 
@@ -125,10 +119,7 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
-	profileName, err := f.ResolveProfileName(cfg)
-	if err != nil {
-		return nil, err
-	}
+	profileName := f.ResolveProfileName(cfg)
 	profile := config.GetProfile(cfg, profileName)
 
 	baseURL := os.Getenv("JIRA_BASE_URL")
@@ -169,10 +160,15 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		timeout = profile.TimeoutSeconds
 	}
 
+	boundary, err := f.clientBoundary()
+	if err != nil {
+		return nil, err
+	}
 	client, err := jira.NewClient(baseURL, email, token, authType, timeout)
 	if err != nil {
 		return nil, err
 	}
+	client.SetBoundary(boundary)
 	if f.Debug {
 		writer := io.Writer(os.Stderr)
 		if f.DebugWriter != nil {
