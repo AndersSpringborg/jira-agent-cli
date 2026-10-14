@@ -15,27 +15,33 @@ func newShowCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a named context (active context by default)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := f.LoadConfig()
+			store, err := f.ContextStore()
+			if err != nil {
+				return err
+			}
+			contexts, err := store.Load()
 			if err != nil {
 				return err
 			}
 
-			name := cfg.ActiveContext
+			name := contexts.ActiveContext
 			if len(args) == 1 {
 				name = args[0]
 			}
 			if name == "" {
-				return fmt.Errorf("no active context; create one with `jira context set <name>`")
+				return fmt.Errorf("no active context; ask the user to create one with `sudo jira context set <name>`")
 			}
-			ctx := config.GetContext(cfg, name)
+			ctx := contexts.Get(name)
 			if ctx == nil {
 				return fmt.Errorf("context '%s' not found", name)
 			}
 
 			data := map[string]any{
-				"name":    name,
-				"active":  name == cfg.ActiveContext,
-				"profile": ctx.Profile,
+				"name":      name,
+				"active":    name == contexts.ActiveContext,
+				"profile":   ctx.Profile,
+				"path":      store.Path(),
+				"protected": true,
 			}
 			if ctx.Project != "" {
 				data["project"] = ctx.Project
@@ -65,7 +71,7 @@ func newShowCmd(f *cmdutil.Factory) *cobra.Command {
 				data["jql"] = jql
 			}
 
-			driver := f.DisplayDriver(cmd)
+			driver := f.DisplayDriverTo(cmd, cmd.OutOrStdout())
 			return driver.Item("Context", data)
 		},
 	}

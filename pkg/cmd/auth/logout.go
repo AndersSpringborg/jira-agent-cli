@@ -18,7 +18,10 @@ func newLogoutCmd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			profileName := f.ResolveProfileName(cfg)
+			profileName, err := f.ResolveProfileName(cfg)
+			if err != nil {
+				return err
+			}
 
 			deleted, err := auth.DeleteToken(profileName)
 			if err != nil {

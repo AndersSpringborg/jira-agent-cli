@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -25,22 +26,15 @@ type Context struct {
 	Display   string   `yaml:"display,omitempty"`
 }
 
-func (c *Context) IsEmpty() bool {
-	if c == nil {
-		return true
-	}
-	return c.Profile == "" && c.Project == "" && c.BoardID == 0 && c.Epic == "" &&
-		len(c.Labels) == 0 && c.IssueType == "" && c.Status == "" && c.Assignee == "" &&
-		c.Display == ""
-}
-
 type Profile struct {
-	Name           string   `yaml:"name"`
-	BaseURL        string   `yaml:"base_url,omitempty"`
-	AuthType       string   `yaml:"auth_type,omitempty"`
-	UserEmail      string   `yaml:"user_email,omitempty"`
-	TimeoutSeconds float64  `yaml:"timeout_seconds,omitempty"`
-	Context        *Context `yaml:"context,omitempty"`
+	Name           string  `yaml:"name"`
+	BaseURL        string  `yaml:"base_url,omitempty"`
+	AuthType       string  `yaml:"auth_type,omitempty"`
+	UserEmail      string  `yaml:"user_email,omitempty"`
+	TimeoutSeconds float64 `yaml:"timeout_seconds,omitempty"`
+	// Context is the active protected context, filled in at runtime. It is
+	// never read from or written to config.yml, which agents can edit.
+	Context *Context `yaml:"-"`
 }
 
 func DetectAuthType(baseURL string) string {
@@ -52,13 +46,33 @@ func DetectAuthType(baseURL string) string {
 
 type Config struct {
 	DefaultProfile string              `yaml:"default_profile"`
-	ActiveContext  string              `yaml:"active_context,omitempty"`
 	Profiles       map[string]*Profile `yaml:"profiles"`
-	Contexts       []*Context          `yaml:"contexts,omitempty"`
+}
+
+// sudoUser returns the user who invoked sudo, or "" when not running as root
+// through sudo.
+func sudoUser(euid int) string {
+	if euid != 0 {
+		return ""
+	}
+	return os.Getenv("SUDO_USER")
+}
+
+// homeDir returns the home of the sudo-invoking user, so `sudo jira context`
+// sees the same profiles as the user; otherwise the current user's home.
+func homeDir(invokingUser string) (string, error) {
+	if invokingUser == "" {
+		return os.UserHomeDir()
+	}
+	u, err := user.Lookup(invokingUser)
+	if err != nil {
+		return "", err
+	}
+	return u.HomeDir, nil
 }
 
 func configDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := homeDir(sudoUser(os.Geteuid()))
 	if err != nil {
 		return "", err
 	}
@@ -106,6 +120,9 @@ func Load() (*Config, error) {
 }
 
 func Save(cfg *Config) error {
+	if sudoUser(os.Geteuid()) != "" {
+		return errors.New("refusing to write config.yml as root; run this command without sudo")
+	}
 	path, err := configPath()
 	if err != nil {
 		return err
@@ -174,53 +191,34 @@ func ListProfiles(cfg *Config) []string {
 	return names
 }
 
-func GetContext(cfg *Config, name string) *Context {
-	if cfg == nil {
-		return nil
+// HasLegacyContexts reports whether config.yml still holds contexts from
+// before they moved to the protected context file. They are ignored.
+func HasLegacyContexts() bool {
+	path, err := configPath()
+	if err != nil {
+		return false
 	}
-	for _, ctx := range cfg.Contexts {
-		if ctx != nil && ctx.Name == name {
-			return ctx
-		}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
 	}
-	return nil
-}
-
-func GetActiveContext(cfg *Config) *Context {
-	if cfg == nil || cfg.ActiveContext == "" {
-		return nil
+	var legacy struct {
+		ActiveContext string           `yaml:"active_context"`
+		Contexts      []map[string]any `yaml:"contexts"`
+		Profiles      map[string]struct {
+			Context map[string]any `yaml:"context"`
+		} `yaml:"profiles"`
 	}
-	return GetContext(cfg, cfg.ActiveContext)
-}
-
-func UpsertContext(cfg *Config, name string, ctx *Context) {
-	ctx.Name = name
-	for i, existing := range cfg.Contexts {
-		if existing != nil && existing.Name == name {
-			cfg.Contexts[i] = ctx
-			return
-		}
+	if yaml.Unmarshal(data, &legacy) != nil {
+		return false
 	}
-	cfg.Contexts = append(cfg.Contexts, ctx)
-}
-
-func DeleteContext(cfg *Config, name string) bool {
-	for i, ctx := range cfg.Contexts {
-		if ctx != nil && ctx.Name == name {
-			cfg.Contexts = append(cfg.Contexts[:i], cfg.Contexts[i+1:]...)
+	if legacy.ActiveContext != "" || len(legacy.Contexts) > 0 {
+		return true
+	}
+	for _, p := range legacy.Profiles {
+		if len(p.Context) > 0 {
 			return true
 		}
 	}
 	return false
-}
-
-func ListContexts(cfg *Config) []string {
-	names := make([]string, 0, len(cfg.Contexts))
-	for _, ctx := range cfg.Contexts {
-		if ctx != nil {
-			names = append(names, ctx.Name)
-		}
-	}
-	sort.Strings(names)
-	return names
 }

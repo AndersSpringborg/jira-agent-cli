@@ -10,7 +10,7 @@ jira search jql "assignee = currentUser() AND status != Done" | jq -r '.[].key'
 
 - **JSON by default, clean streams.** Results go to `stdout`, all diagnostics to `stderr`, and failures return a non-zero exit code. `jq`, `rg`, and `wc` work without choking on error blobs, and scripts check `$?` instead of parsing strings.
 - **Auth stays out of band.** You log in once; the token lives in the OS keychain and is never written to disk or exposed to an agent. Execution inherits an already-authenticated environment.
-- **Inspectable, scoped state.** `jira context set work --project PROJ --profile default` saves project and authentication defaults together; `jira context use work` switches scope explicitly.
+- **Inspectable, sudo-protected scope.** `sudo jira context set work --project PROJ --profile default` saves project and authentication defaults together; `sudo jira context use work` switches scope explicitly. Agents can read the context but cannot change it without your sudo password.
 - **Lean output.** Project only the fields you need with repeatable `-F customfield_x` flags, keeping responses (and token usage) small.
 - **No daemon, no custom protocol.** It's a plain binary. Every action is one replayable command line — debug by copying it from your shell history and running it again.
 - **Server-side audit.** `jira me audit --date YYYY-MM-DD` reconstructs what actually changed on a given day from Jira's own changelog, independent of local state.
@@ -77,10 +77,12 @@ The token is stored in the OS keychain — never written to disk.
 
 ```bash
 jira ping
-jira context set work --project PROJ --board-id 42 --profile default
-jira context use work                  # switch project and authentication profile together
-jira context list                      # inspect all saved contexts
+sudo jira context set work --project PROJ --board-id 42 --profile default
+sudo jira context use work             # switch project and authentication profile together
+jira context list                      # inspect all saved contexts (no sudo needed)
 ```
+
+Changing a context requires `sudo` (see [Sudo-protected contexts](#sudo-protected-contexts)).
 
 A per-command `--format` flag always overrides the context default. See [Output Formats](#output-formats).
 
@@ -105,7 +107,7 @@ jira issue graph-pretty                # visual dependency check for humans
 | `--format json`     | Machine-readable JSON (default)          |
 | `--format markdown` | Structured markdown, fewer tokens for LLMs |
 
-Set a persistent default on a named context with `jira context set work --display markdown`; `--format` always overrides it.
+Set a persistent default on a named context with `sudo jira context set work --display markdown`; `--format` always overrides it.
 
 ## Debugging Jira responses
 
@@ -271,7 +273,7 @@ Component 1
 
 ## Configuration
 
-Config lives at `~/.config/jira-cli/config.yml`. You normally don't edit it by hand — use the `jira config` and `jira context` commands.
+Config lives at `~/.config/jira-cli/config.yml`. You normally don't edit it by hand — use the `jira config` commands. Contexts live separately in a root-owned file (see below).
 
 ### Profiles
 
@@ -284,6 +286,42 @@ jira auth login --profile work --server https://work.atlassian.net \
 jira config use work                 # switch default
 jira issue list --profile work       # use a profile for one command
 ```
+
+### Sudo-protected contexts
+
+A context is the scope an agent works in (project, epic, labels, assignee, profile). To stop an agent from widening its own scope, contexts are stored in a file only root can change:
+
+| OS            | Context file                                   | Change it with                              |
+|---------------|------------------------------------------------|---------------------------------------------|
+| macOS / Linux | `/etc/jira-cli/contexts/<user>.yml`            | `sudo jira context set/use/clear …`         |
+| Windows       | `%ProgramData%\jira-cli\contexts\<user>.yml`  | `jira context …` in an Administrator shell  |
+
+- **Reading needs no privileges.** `jira context show`, `jira context list`, and every scoped command read the file as your normal user.
+- **Changing requires sudo.** `jira context set`, `use`, and `clear` fail without it, so an agent can't change scope without your password.
+- **Tampering fails closed.** If the context file or its directory isn't owned by root (Administrators/SYSTEM on Windows), or other users can write to it, every command refuses to use it.
+- **`config.yml` contexts are ignored.** `contexts`, `active_context`, and per-profile `context` keys in `~/.config/jira-cli/config.yml` (where contexts were stored before) are ignored, so an agent can't inject scope there. Recreate old contexts with `sudo jira context set`.
+- Under `sudo`, `jira` reads the invoking user's profiles (via `$SUDO_USER`) and writes that user's context file. It refuses to write `config.yml` as root.
+
+#### Message for AI agents
+
+If an agent tries to change the context without sudo, the command fails and prints:
+
+```text
+changing the jira context requires sudo (Administrator on Windows)
+
+The context limits what AI agents can see and change in Jira, so only the user may change it.
+AI agents: Ask the user to run this command themselves. Never run it yourself with sudo,
+and never try to bypass or weaken this protection (editing context files, changing file
+permissions or ownership, or reusing cached sudo credentials).
+
+Ask the user to run this command:
+
+  sudo jira context set work --project CER
+```
+
+**AI agents: never run `sudo jira context …` yourself, and never try to bypass the protection.** Show the user the exact command and ask them to run it.
+
+> **Caveat.** Sudo is only as strong as your sudo setup. If `sudo` doesn't ask for a password (a `NOPASSWD` rule, or a still-valid cached credential shared with the agent's shell), the agent can get through. Consider `Defaults timestamp_timeout=0` in sudoers, or make sure the agent runs without a TTY that shares your sudo timestamp.
 
 ### Environment Variables
 
@@ -303,7 +341,7 @@ These override config file values and are useful in CI/automation:
 Authentication and execution are decoupled. A human or CI process runs `jira auth login` once; the token is stored in the OS keychain, never on disk. An agent never sees, requests, or routes the credential — it inherits an already-authenticated environment, and access is revoked system-side without any model trust.
 
 ### Inspectable state and blast-radius control
-`jira context set work --project PROJ --board-id 42 --profile default` writes project filters and the authentication profile to a named context. `jira context use work` makes that context active, while `jira context list` keeps every saved scope inspectable. An explicit per-command `--profile` still overrides the context's authentication profile.
+`sudo jira context set work --project PROJ --board-id 42 --profile default` writes project filters and the authentication profile to a named context. `sudo jira context use work` makes that context active, while `jira context list` keeps every saved scope inspectable. The file is root-owned, so an agent can read its scope but can't widen it without the user's sudo password. An explicit per-command `--profile` still overrides the context's authentication profile.
 
 ### Built for the Unix pipe
 The CLI leans on standard tools (`jq`, `rg`, `grep`, `wc`) instead of a bespoke processing engine. `stdout` carries only the result; diagnostics, warnings, and errors go to `stderr`, so pipelines never choke on error output. Failed calls return a non-zero exit code, so success/failure is read from `$?` rather than parsed from text.

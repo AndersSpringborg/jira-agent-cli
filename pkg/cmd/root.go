@@ -47,8 +47,10 @@ func Execute(root *cobra.Command) error {
 
 // NewRootCmd creates the root cobra command for the jira CLI.
 func NewRootCmd(version, date string) *cobra.Command {
-	f := &cmdutil.Factory{}
+	return newRootCmd(version, date, &cmdutil.Factory{})
+}
 
+func newRootCmd(version, date string, f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "jira",
 		Short:   "Jira CLI — kubectl for Jira, designed for AI agents",

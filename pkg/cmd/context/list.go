@@ -12,23 +12,26 @@ func newListCmd(f *cmdutil.Factory) *cobra.Command {
 		Use:   "list",
 		Short: "List named contexts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := f.LoadConfig()
+			contexts, err := f.LoadContexts()
 			if err != nil {
 				return err
 			}
+			if config.HasLegacyContexts() {
+				cmd.PrintErrln("note: contexts in ~/.config/jira-cli/config.yml are ignored; ask the user to recreate them with `sudo jira context set`")
+			}
 
-			rows := make([]map[string]any, 0, len(cfg.Contexts))
-			for _, name := range config.ListContexts(cfg) {
-				ctx := config.GetContext(cfg, name)
+			rows := make([]map[string]any, 0, len(contexts.Contexts))
+			for _, name := range contexts.Names() {
+				ctx := contexts.Get(name)
 				rows = append(rows, map[string]any{
 					"name":    name,
-					"active":  name == cfg.ActiveContext,
+					"active":  name == contexts.ActiveContext,
 					"profile": ctx.Profile,
 					"project": ctx.Project,
 				})
 			}
 
-			driver := f.DisplayDriver(cmd)
+			driver := f.DisplayDriverTo(cmd, cmd.OutOrStdout())
 			return driver.List("Contexts", []string{"name", "active", "profile", "project"}, rows)
 		},
 	}

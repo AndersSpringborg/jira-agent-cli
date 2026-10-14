@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
-	"AndersSpringborg/jira-cli/internal/config"
 
 	"github.com/spf13/cobra"
 )
@@ -26,28 +25,28 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 		Short: "Delete a named context or clear selected fields",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, err := f.LoadConfig()
+			store, contexts, err := openForChange(f, cmd, args)
 			if err != nil {
 				return err
 			}
 
-			name := cfg.ActiveContext
+			name := contexts.ActiveContext
 			if len(args) == 1 {
 				name = args[0]
 			}
 			if name == "" {
 				return fmt.Errorf("no active context")
 			}
-			ctx := config.GetContext(cfg, name)
+			ctx := contexts.Get(name)
 			if ctx == nil {
 				return fmt.Errorf("context '%s' not found", name)
 			}
 
 			noSpecific := !project && !boardID && !epic && !labels && !issueType && !status && !assignee && !display
 			if noSpecific {
-				config.DeleteContext(cfg, name)
-				if cfg.ActiveContext == name {
-					cfg.ActiveContext = ""
+				contexts.Delete(name)
+				if contexts.ActiveContext == name {
+					contexts.ActiveContext = ""
 				}
 			} else {
 				if project {
@@ -76,11 +75,11 @@ func newClearCmd(f *cmdutil.Factory) *cobra.Command {
 				}
 			}
 
-			if err := config.Save(cfg); err != nil {
+			if err := store.Save(contexts); err != nil {
 				return err
 			}
 
-			driver := f.DisplayDriver(cmd)
+			driver := f.DisplayDriverTo(cmd, cmd.OutOrStdout())
 			if noSpecific {
 				return driver.Message("Context '%s' deleted.", name)
 			}

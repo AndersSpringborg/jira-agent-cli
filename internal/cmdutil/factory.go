@@ -17,18 +17,44 @@ type Factory struct {
 	Profile     string
 	Debug       bool
 	DebugWriter func() io.Writer
+	// Contexts overrides the protected system context store; nil uses
+	// config.DefaultContextStore.
+	Contexts *config.ContextStore
 }
 
 func (f *Factory) LoadConfig() (*config.Config, error) {
 	return config.Load()
 }
 
-func (f *Factory) ResolveProfileName(cfg *config.Config) string {
+func (f *Factory) ContextStore() (*config.ContextStore, error) {
+	if f.Contexts != nil {
+		return f.Contexts, nil
+	}
+	return config.DefaultContextStore()
+}
+
+func (f *Factory) LoadContexts() (*config.ContextFile, error) {
+	store, err := f.ContextStore()
+	if err != nil {
+		return nil, fmt.Errorf("open context store: %w", err)
+	}
+	return store.Load()
+}
+
+func (f *Factory) ResolveProfileName(cfg *config.Config) (string, error) {
+	contexts, err := f.LoadContexts()
+	if err != nil {
+		return "", err
+	}
+	return f.resolveProfileName(cfg, contexts.Active()), nil
+}
+
+func (f *Factory) resolveProfileName(cfg *config.Config, active *config.Context) string {
 	if f.Profile != "" || os.Getenv("JIRABOT_PROFILE") != "" {
 		return config.ResolveProfileName(cfg, f.Profile)
 	}
-	if ctx := config.GetActiveContext(cfg); ctx != nil && ctx.Profile != "" {
-		return ctx.Profile
+	if active != nil && active.Profile != "" {
+		return active.Profile
 	}
 	return config.ResolveProfileName(cfg, "")
 }
@@ -38,7 +64,12 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
-	profileName := f.ResolveProfileName(cfg)
+	contexts, err := f.LoadContexts()
+	if err != nil {
+		return nil, err
+	}
+	active := contexts.Active()
+	profileName := f.resolveProfileName(cfg, active)
 	profile := config.GetProfile(cfg, profileName)
 	if profile == nil {
 		profile = &config.Profile{Name: profileName}
@@ -46,9 +77,7 @@ func (f *Factory) LoadProfile() (*config.Profile, error) {
 		profileCopy := *profile
 		profile = &profileCopy
 	}
-	if ctx := config.GetActiveContext(cfg); ctx != nil {
-		profile.Context = ctx
-	}
+	profile.Context = active
 	return profile, nil
 }
 
@@ -96,7 +125,10 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 
-	profileName := f.ResolveProfileName(cfg)
+	profileName, err := f.ResolveProfileName(cfg)
+	if err != nil {
+		return nil, err
+	}
 	profile := config.GetProfile(cfg, profileName)
 
 	baseURL := os.Getenv("JIRA_BASE_URL")
