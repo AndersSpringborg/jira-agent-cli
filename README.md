@@ -10,6 +10,7 @@ jira search jql "assignee = currentUser() AND status != Done" | jq -r '.[].key'
 
 - **JSON by default, clean streams.** Results go to `stdout`, all diagnostics to `stderr`, and failures return a non-zero exit code. `jq`, `rg`, and `wc` work without choking on error blobs, and scripts check `$?` instead of parsing strings.
 - **Auth stays out of band.** You log in once; the token lives in the OS keychain and is never written to disk or exposed to an agent. Execution inherits an already-authenticated environment.
+- **Sudo-protected boundary.** `sudo jira boundary set --label safe` limits every request to issues you allow. Agents can read the boundary but can't widen it without your password. See [Boundary and context](#boundary-and-context).
 - **Inspectable, scoped state.** `jira context set work --project PROJ --profile default` saves project and authentication defaults together; `jira context use work` switches scope explicitly.
 - **Lean output.** Project only the fields you need with repeatable `-F customfield_x` flags, keeping responses (and token usage) small.
 - **No daemon, no custom protocol.** It's a plain binary. Every action is one replayable command line — debug by copying it from your shell history and running it again.
@@ -196,6 +197,7 @@ The command never prints binary data to stdout. It downloads through the authent
 |----------------|----------------------------------------------|
 | `jira api`     | Raw access to any Jira REST endpoint; `--list` to discover endpoints |
 | `jira auth`    | Login, logout, status, whoami                |
+| `jira boundary` | Show, or with sudo change, which issues the CLI may access |
 | `jira config`  | Manage profiles (init, list, show, set, use, delete) |
 | `jira context` | Set default filters (project, board, labels, etc.)   |
 | `jira issue`   | Full issue lifecycle plus dependency analysis (`ready`, `graph`) |
@@ -285,6 +287,59 @@ jira config use work                 # switch default
 jira issue list --profile work       # use a profile for one command
 ```
 
+### Boundary and context
+
+There are two layers of scope:
+
+| | **Boundary** (`jira boundary`) | **Context** (`jira context`) |
+|---|---|---|
+| Purpose | What the agent is *allowed* to see and change | What the agent is *working on* |
+| Example | `--label safe` | `--epic CER-33` |
+| Changed by | The user, with `sudo` (Administrator on Windows) | Anyone, no sudo |
+| Stored in | `/etc/jira-cli/boundaries/<user>.yml`, root-owned (`%ProgramData%\jira-cli\boundaries\` on Windows) | `~/.config/jira-cli/config.yml` |
+| Can be stepped out of | Never | Yes: flags and raw JQL can query outside the context, but only inside the boundary |
+
+```bash
+sudo jira boundary set --project CER --label safe   # user, once
+jira boundary show                                  # anyone
+jira context set work --project CER --epic CER-33   # agent, no sudo
+jira search jql "project = CER"                     # only returns issues labelled "safe"
+jira issue view CER-99                              # fails if CER-99 is not "safe"
+```
+
+An issue is inside the boundary when its project is one of the `--project` values (if any are given) and it carries **every** `--label`. While a boundary is active:
+
+- **Searches stay inside it.** Every search (`issue list`, `search jql`, `mine`, `me audit`, board and sprint issues, dependency graphs) is rewritten to `(<boundary>) AND (<your JQL>)`. JQL that tries to break out (unbalanced parentheses or quotes) is rejected. Results that fall outside the boundary anyway are dropped.
+- **Issue keys outside it fail.** Any command that names an issue (`view`, `edit`, `move`, `assign`, `comment`, `link`, `delete`, `clone`, `sprint add`, attachments) fails if the issue is outside the boundary, before anything is sent.
+- **Linked issues outside it are hidden.** Links, subtasks and parents that are outside the boundary are removed from results, so their summaries don't leak.
+- **New issues stay inside it.** New and cloned issues must be in an allowed project and automatically get the boundary labels. Edits can't remove a boundary label.
+- **Projects outside it are hidden.** `project list` and `project view` only show allowed projects.
+- **`jira api` is refused.** Raw requests can't be confined to the boundary. A user running the CLI with `sudo` isn't confined.
+- **Tampering fails closed.** If the boundary file or its folders aren't owned by root (Administrators/SYSTEM on Windows), or others can write to them, every command refuses to run.
+
+#### Message for AI agents
+
+If an agent tries to change the boundary without sudo, the command fails and prints:
+
+```text
+changing the jira boundary requires sudo (Administrator on Windows)
+
+The boundary limits which Jira issues AI agents can see and change, so only the user may change it.
+AI agents: Ask the user to run this command themselves. Never run it yourself with sudo,
+and never try to bypass or weaken this protection (editing boundary files, changing file
+permissions or ownership, or reusing cached sudo credentials).
+
+Ask the user to run this command:
+
+  sudo jira boundary set --label safe
+```
+
+Requests outside the boundary fail with `... is outside the jira boundary. AI agents: do not try to work around it; if you need access, ask the user.`
+
+**AI agents: never run `sudo jira boundary …` yourself, and never try to bypass the boundary.** Show the user the exact command and ask them to run it.
+
+> **Caveats.** The boundary is enforced by this CLI, not by Jira. For a hard guarantee, give the agent a Jira account whose permissions match the boundary. It is also only as strong as your sudo setup: if `sudo` doesn't ask for a password (a `NOPASSWD` rule, or a cached credential the agent's shell can reuse), the agent can get through. Consider `Defaults timestamp_timeout=0` in sudoers. Board names and sprint metadata (not their issues), users, and `me` are not restricted.
+
 ### Environment Variables
 
 These override config file values and are useful in CI/automation:
@@ -303,7 +358,7 @@ These override config file values and are useful in CI/automation:
 Authentication and execution are decoupled. A human or CI process runs `jira auth login` once; the token is stored in the OS keychain, never on disk. An agent never sees, requests, or routes the credential — it inherits an already-authenticated environment, and access is revoked system-side without any model trust.
 
 ### Inspectable state and blast-radius control
-`jira context set work --project PROJ --board-id 42 --profile default` writes project filters and the authentication profile to a named context. `jira context use work` makes that context active, while `jira context list` keeps every saved scope inspectable. An explicit per-command `--profile` still overrides the context's authentication profile.
+`jira context set work --project PROJ --board-id 42 --profile default` writes project filters and the authentication profile to a named context. `jira context use work` makes that context active, while `jira context list` keeps every saved scope inspectable. An explicit per-command `--profile` still overrides the context's authentication profile. Every request, whatever the context or profile, stays inside the sudo-protected [boundary](#boundary-and-context).
 
 ### Built for the Unix pipe
 The CLI leans on standard tools (`jq`, `rg`, `grep`, `wc`) instead of a bespoke processing engine. `stdout` carries only the result; diagnostics, warnings, and errors go to `stderr`, so pipelines never choke on error output. Failed calls return a non-zero exit code, so success/failure is read from `$?` rather than parsed from text.

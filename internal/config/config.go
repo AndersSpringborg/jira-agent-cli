@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"os"
+	"os/user"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -57,8 +58,30 @@ type Config struct {
 	Contexts       []*Context          `yaml:"contexts,omitempty"`
 }
 
+// sudoUser returns the user who invoked sudo, or "" when not running as root
+// through sudo.
+func sudoUser(euid int) string {
+	if euid != 0 {
+		return ""
+	}
+	return os.Getenv("SUDO_USER")
+}
+
+// homeDir returns the home of the sudo-invoking user, so privileged commands
+// see the same profiles as the user; otherwise the current user's home.
+func homeDir(invokingUser string) (string, error) {
+	if invokingUser == "" {
+		return os.UserHomeDir()
+	}
+	u, err := user.Lookup(invokingUser)
+	if err != nil {
+		return "", err
+	}
+	return u.HomeDir, nil
+}
+
 func configDir() (string, error) {
-	home, err := os.UserHomeDir()
+	home, err := homeDir(sudoUser(os.Geteuid()))
 	if err != nil {
 		return "", err
 	}
@@ -106,6 +129,9 @@ func Load() (*Config, error) {
 }
 
 func Save(cfg *Config) error {
+	if sudoUser(os.Geteuid()) != "" {
+		return errors.New("refusing to write config.yml as root; run this command without sudo")
+	}
 	path, err := configPath()
 	if err != nil {
 		return err

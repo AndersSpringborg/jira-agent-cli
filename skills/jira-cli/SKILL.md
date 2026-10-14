@@ -40,6 +40,7 @@ Reads (`list`, `view`, `search`, attachment downloads, `me`/`mine`, `ping`, boar
 7. **`jira auth status` is local-only** (keychain check). Use `jira ping` or `jira auth whoami` to confirm the token actually works.
 8. **Custom fields use raw IDs:** `--field customfield_10016=5`. Repeatable.
 9. **Bodies are Markdown.** `--body`/`-b` (and comment text) take CommonMark - headings, lists, fenced code blocks, links, bold/italic. The CLI converts it to ADF on Cloud and wiki markup on Server/DC. Write Markdown, not raw `{code}`/`h3.` wiki syntax.
+10. **Respect the boundary.** `jira boundary show` lists what you may access (projects and required labels). Every command is confined to it, and requests outside it fail with `outside the jira boundary`. You may change the *context* freely, but changing the *boundary* requires sudo, which only the user can do. **Never run `sudo jira boundary …` yourself, and never try to bypass the boundary** (editing boundary files, changing permissions, reusing cached sudo credentials, or calling Jira outside this CLI). If you need wider access, show the user the exact command, e.g. `sudo jira boundary set --project PROJ --label safe`, and ask them to run it. `jira api` is refused while a boundary is active.
 
 ## Intent -> command
 
@@ -76,6 +77,7 @@ Reads (`list`, `view`, `search`, attachment downloads, `me`/`mine`, `ping`, boar
 | Profiles                          | `jira config init/list/show/set/use/delete`                   |
 | Anything with no command above    | `jira api <path>` — raw REST passthrough (`-X`, `-d`, `-H`)    |
 | Discover API endpoints            | `jira api --list [filter...]` (offline, no auth needed)        |
+| Allowed scope (boundary)          | `jira boundary show`; changing it needs `sudo`, so ask the user |
 | Context defaults                  | `jira context set NAME --project PROJ --profile PROFILE`; switch with `jira context use NAME`, inspect with `jira context list` |
 
 When no predefined command fits, use `jira api`: it sends a raw request with the profile's auth and prints the response verbatim. Full paths (starting with `/`) pass through unchanged; shorthand paths like `issue/PROJ-1` get the platform prefix for the instance flavor (`/rest/api/3` on Cloud, `/rest/api/2` on Server/Data Center). `-d` implies POST (`@file` and `-` for stdin work); find the right endpoint first with `jira api --list <terms>`, which searches an embedded catalog of the official API for the profile's flavor. Errors print Jira's error body and exit non-zero.

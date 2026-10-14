@@ -17,6 +17,29 @@ type Factory struct {
 	Profile     string
 	Debug       bool
 	DebugWriter func() io.Writer
+	// Boundaries overrides the protected system boundary store; nil uses
+	// config.DefaultBoundaryStore.
+	Boundaries *config.BoundaryStore
+}
+
+func (f *Factory) BoundaryStore() (*config.BoundaryStore, error) {
+	if f.Boundaries != nil {
+		return f.Boundaries, nil
+	}
+	return config.DefaultBoundaryStore()
+}
+
+// clientBoundary returns the boundary every Jira request must stay inside.
+// Privileged callers (the user via sudo) are not confined.
+func (f *Factory) clientBoundary() (*config.Boundary, error) {
+	store, err := f.BoundaryStore()
+	if err != nil {
+		return nil, fmt.Errorf("open boundary store: %w", err)
+	}
+	if store.RequirePrivilege() == nil {
+		return nil, nil
+	}
+	return store.Load()
 }
 
 func (f *Factory) LoadConfig() (*config.Config, error) {
@@ -137,10 +160,15 @@ func (f *Factory) LoadClient() (*jira.Client, error) {
 		timeout = profile.TimeoutSeconds
 	}
 
+	boundary, err := f.clientBoundary()
+	if err != nil {
+		return nil, err
+	}
 	client, err := jira.NewClient(baseURL, email, token, authType, timeout)
 	if err != nil {
 		return nil, err
 	}
+	client.SetBoundary(boundary)
 	if f.Debug {
 		writer := io.Writer(os.Stderr)
 		if f.DebugWriter != nil {

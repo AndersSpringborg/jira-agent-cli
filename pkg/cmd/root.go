@@ -8,6 +8,7 @@ import (
 	"AndersSpringborg/jira-cli/pkg/cmd/api"
 	"AndersSpringborg/jira-cli/pkg/cmd/auth"
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
+	"AndersSpringborg/jira-cli/pkg/cmd/boundary"
 	"AndersSpringborg/jira-cli/pkg/cmd/configcmd"
 	cmdcontext "AndersSpringborg/jira-cli/pkg/cmd/context"
 	"AndersSpringborg/jira-cli/pkg/cmd/feedback"
@@ -47,8 +48,10 @@ func Execute(root *cobra.Command) error {
 
 // NewRootCmd creates the root cobra command for the jira CLI.
 func NewRootCmd(version, date string) *cobra.Command {
-	f := &cmdutil.Factory{}
+	return newRootCmd(version, date, &cmdutil.Factory{})
+}
 
+func newRootCmd(version, date string, f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "jira",
 		Short:   "Jira CLI — kubectl for Jira, designed for AI agents",
@@ -81,6 +84,7 @@ Examples:
 	cmd.AddCommand(api.NewCmd(f))
 	cmd.AddCommand(auth.NewCmd(f))
 	cmd.AddCommand(configcmd.NewCmd(f))
+	cmd.AddCommand(boundary.NewCmd(f))
 	cmd.AddCommand(cmdcontext.NewCmd(f))
 	cmd.AddCommand(issue.NewCmd(f))
 	cmd.AddCommand(board.NewCmd(f))
