@@ -142,6 +142,30 @@ func TestExecutePrintsFailingCommandHelpOnError(t *testing.T) {
 	assert.Contains(t, stderr.String(), "--comments")
 }
 
+func TestExecuteExplainsExpiredTokenWithoutHelp(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Ausername", "anonymous")
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("JIRA_BASE_URL", server.URL)
+	t.Setenv("JIRA_TOKEN", "expired-token")
+	t.Setenv("JIRA_AUTH_TYPE", "pat")
+
+	root := NewRootCmd("test", "today")
+	var stderr bytes.Buffer
+	root.SetErr(&stderr)
+	root.SetArgs([]string{"ping"})
+
+	err := Execute(root)
+	require.Error(t, err)
+	assert.Contains(t, stderr.String(), "may be expired")
+	assert.Contains(t, stderr.String(), "jira auth login")
+	assert.NotContains(t, stderr.String(), "Usage:")
+}
+
 func TestDebugFlagWritesJiraResponseToStderr(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "/rest/api/2/myself", r.URL.Path)

@@ -2,9 +2,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
+	"AndersSpringborg/jira-cli/internal/jira"
 	"AndersSpringborg/jira-cli/pkg/cmd/api"
 	"AndersSpringborg/jira-cli/pkg/cmd/auth"
 	"AndersSpringborg/jira-cli/pkg/cmd/board"
@@ -29,6 +31,8 @@ import (
 
 // Execute runs root and, on failure, prints the error and the failing
 // command's complete help text to stderr so automated callers can recover.
+// Authentication failures skip the help: the command was used correctly and
+// usage text would only bury the instruction to renew the token.
 func Execute(root *cobra.Command) error {
 	executed, err := root.ExecuteC()
 	if err == nil {
@@ -38,6 +42,9 @@ func Execute(root *cobra.Command) error {
 		executed = root
 	}
 	executed.PrintErrln(err)
+	if errors.Is(err, jira.ErrAuthentication) {
+		return err
+	}
 	executed.PrintErrln()
 	executed.SetOut(executed.ErrOrStderr())
 	if helpErr := executed.Help(); helpErr != nil {
