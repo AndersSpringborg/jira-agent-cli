@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"AndersSpringborg/jira-cli/internal/cmdutil"
+	"AndersSpringborg/jira-cli/internal/cmdutil/cmdutiltest"
 	"AndersSpringborg/jira-cli/pkg/cmd/api"
 
 	"github.com/stretchr/testify/assert"
@@ -26,7 +26,7 @@ func setupEnv(t *testing.T, serverURL, authType string) {
 
 func runCmd(t *testing.T, args []string, stdin string) (string, error) {
 	t.Helper()
-	cmd := api.NewCmd(&cmdutil.Factory{})
+	cmd := api.NewCmd(cmdutiltest.NewFactory(t))
 	var out bytes.Buffer
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)

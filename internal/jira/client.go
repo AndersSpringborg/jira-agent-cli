@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -23,6 +24,10 @@ import (
 
 	"AndersSpringborg/jira-cli/internal/config"
 )
+
+// ErrAuthentication is returned when Jira rejects the stored credentials,
+// typically because the API token or PAT has expired or been revoked.
+var ErrAuthentication = errors.New("jira: authentication failed")
 
 // Client is a Jira REST API client that returns untyped JSON data.
 type Client struct {
@@ -802,7 +807,25 @@ func (c *Client) do(method, path string, body []byte, headers map[string]string)
 		return nil, err
 	}
 	c.writeDebugResponse(req, resp)
+	if err := checkAuthenticated(resp); err != nil {
+		_ = resp.Body.Close()
+		return nil, err
+	}
 	return resp, nil
+}
+
+// checkAuthenticated detects rejected credentials. Besides answering 401,
+// Jira Server/DC may silently serve a request with an expired token as
+// anonymous, which surfaces as confusing 400s or empty results, so the
+// X-AUSERNAME header is checked too. The client always sends credentials,
+// so an anonymous request means they were not accepted.
+func checkAuthenticated(resp *http.Response) error {
+	if resp.StatusCode != http.StatusUnauthorized && !strings.EqualFold(resp.Header.Get("X-Ausername"), "anonymous") {
+		return nil
+	}
+	return fmt.Errorf("%w (HTTP %d): Jira did not accept your API token; it may be expired or revoked. "+
+		"Create a new token and run `jira auth login --token <TOKEN>` (see `jira auth login --help`)",
+		ErrAuthentication, resp.StatusCode)
 }
 
 func (c *Client) writeDebugResponse(req *http.Request, resp *http.Response) {
