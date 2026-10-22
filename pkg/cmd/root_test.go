@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"AndersSpringborg/jira-cli/internal/cmdutil"
+	"AndersSpringborg/jira-cli/internal/cmdutil/cmdutiltest"
 	"AndersSpringborg/jira-cli/internal/config"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ import (
 )
 
 func TestUpdateCommandIsRegistered(t *testing.T) {
-	root := NewRootCmd("1.0.0", "today")
+	root := newRootCmd("1.0.0", "today", cmdutiltest.NewFactory(t))
 	command, _, err := root.Find([]string{"update"})
 	require.NoError(t, err)
 	assert.Equal(t, "update", command.Name())
@@ -38,7 +39,7 @@ func TestUpdateUsesNPMForNPMInstallations(t *testing.T) {
 	t.Setenv("JIRA_CLI_INSTALL_METHOD", "npm")
 	t.Setenv("NPM_ARGS_FILE", argsFile)
 
-	root := NewRootCmd("1.0.0", "today")
+	root := newRootCmd("1.0.0", "today", cmdutiltest.NewFactory(t))
 	var stdout bytes.Buffer
 	root.SetOut(&stdout)
 	root.SetArgs([]string{"update"})
@@ -73,7 +74,7 @@ func TestIssueGetIncludesAttachmentsByDefault(t *testing.T) {
 	t.Setenv("JIRA_EMAIL", "test@example.com")
 	t.Setenv("JIRA_AUTH_TYPE", "basic")
 
-	root := NewRootCmd("test", "today")
+	root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 	var stdout bytes.Buffer
 	root.SetOut(&stdout)
 	root.SetArgs([]string{"issue", "get", "test-1"})
@@ -116,7 +117,7 @@ func TestIssueAttachmentDownload(t *testing.T) {
 	t.Setenv("JIRA_AUTH_TYPE", "basic")
 	outputPath := filepath.Join(t.TempDir(), "screenshot.png")
 
-	root := NewRootCmd("test", "today")
+	root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 	var stdout bytes.Buffer
 	root.SetOut(&stdout)
 	root.SetArgs([]string{"issue", "attachment", "download", "test-1", "screenshot.png", "--output", outputPath})
@@ -129,7 +130,7 @@ func TestIssueAttachmentDownload(t *testing.T) {
 }
 
 func TestExecutePrintsFailingCommandHelpOnError(t *testing.T) {
-	root := NewRootCmd("test", "today")
+	root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 	var stderr bytes.Buffer
 	root.SetErr(&stderr)
 	root.SetArgs([]string{"issue", "view"})
@@ -154,7 +155,7 @@ func TestExecuteExplainsExpiredTokenWithoutHelp(t *testing.T) {
 	t.Setenv("JIRA_TOKEN", "expired-token")
 	t.Setenv("JIRA_AUTH_TYPE", "pat")
 
-	root := NewRootCmd("test", "today")
+	root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 	var stderr bytes.Buffer
 	root.SetErr(&stderr)
 	root.SetArgs([]string{"ping"})
@@ -179,7 +180,7 @@ func TestDebugFlagWritesJiraResponseToStderr(t *testing.T) {
 	t.Setenv("JIRA_TOKEN", "secret-token")
 	t.Setenv("JIRA_AUTH_TYPE", "pat")
 
-	root := NewRootCmd("test", "today")
+	root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 	var stderr bytes.Buffer
 	root.SetErr(&stderr)
 	root.SetArgs([]string{"ping", "--debug"})
@@ -203,7 +204,7 @@ func TestNamedContextsRetainProjectAndProfileWhenSwitched(t *testing.T) {
 
 	executeArgs := func(args ...string) {
 		t.Helper()
-		root := NewRootCmd("test", "today")
+		root := newRootCmd("test", "today", cmdutiltest.NewFactory(t))
 		root.SetArgs(args)
 		require.NoError(t, root.Execute())
 	}
